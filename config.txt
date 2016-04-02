@@ -1,0 +1,6 @@
+maxID = 6
+num_neighbour = 3
+hopCount = 3
+items = apple,orange,pen
+numItem = 4
+serverIP =192.168.24.173
