@@ -139,6 +139,7 @@ class Peer:
         return (self.parent==-1)
     
     def startElection(self):
+        self.parent = self.peerID
         for pID,pURI in self.neighbours.items():
             print ("Calling lookup for "+self.peerID+" "+str(self.requestID)+" "+self.item+" to neighbor "+pID)
             if(pURI.check_parent()):
@@ -154,7 +155,7 @@ class Peer:
             for pID,pURI in self.neighbours.items():
                 if(pID != requestingPeerID):
                     if(pURI.check_parent()):
-                        self.requestMap[(pURI,"election")]= 1
+                        self.requestMap[(pID,"election")]= 1
                         threading.Thread(target = pURI.election_lookup, args=[self.peerID]).start()
                         forwarded = True
             if(forwarded ==False):
@@ -166,11 +167,11 @@ class Peer:
         
         if(self.peerID < requestingPeerID):#extract peer id number here
             self.max = requestingPeerID
-        self.requestMap[(pURI,"reply")] = 1
+        self.requestMap[(requestingPeerID,"reply")] = 1
         all_set = False
         for pID,pURI in self.neighbours.items():
-            if(self.requestMap[(pURI,"election")]==1):
-                if(not (self.requestMap[(pURI,"reply")] ==1)):
+            if(self.requestMap[(requestingPeerID,"election")]==1):
+                if(not (self.requestMap[(requestingPeerID,"reply")] ==1)):
                     all_set=False
                     break
             all_set=True
