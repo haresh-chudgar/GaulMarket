@@ -58,6 +58,7 @@ class Peer:
         self.maxHops = maxHops
         self.parent = -1
         self.max = self.peerID
+        self.isLeader = False
     
     #It is used to create connections between the peers in a randomized fashion
     def create_graph(self):
@@ -134,7 +135,7 @@ class Peer:
         print ("Added all the neighbours of the nodes in respective adjacency lists and everyone is ready to communicate")
     
     
-    def check_parent():
+    def check_parent(self):
         return (self.parent==-1)
     
     def startElection(self):
@@ -149,14 +150,14 @@ class Peer:
     def election_lookup( self, requestingPeerID):
         if(self.parent==-1):
             self.parent = requestingPeerID
-            forwarded = false
+            forwarded = False
             for pID,pURI in self.neighbours.items():
                 if(pID != requestingPeerID):
                     if(pURI.check_parent()):
                         self.requestMap[(pURI,"election")]= 1
                         threading.Thread(target = pURI.election_lookup, args=[self.peerID]).start()
-                        forwarded = true
-            if(forwarded ==false):
+                        forwarded = True
+            if(forwarded ==False):
                 self.neighbours[requestingPeerID].reply(self.peerID)
 
     def reply(self, requestingPeerID):
@@ -166,18 +167,17 @@ class Peer:
         if(self.peerID < requestingPeerID):#extract peer id number here
             self.max = requestingPeerID
         self.requestMap[(pURI,"reply")] = 1
-        all_set = false
+        all_set = False
         for pID,pURI in self.neighbours.items():
             if(self.requestMap[(pURI,"election")]==1):
                 if(not (self.requestMap[(pURI,"reply")] ==1)):
-                    all_set=false
+                    all_set=False
                     break
-            all_set=true
+            all_set=True
         if(all_set):
             for pID,pURI in self.neighbours.items():
                 if(pID != self.parent):
                     threading.Thread(target = pURI.election_lookup, args=[self.max]).start()
-
 
 #update the max node id
 #if all replies heard great and reply to parent else exit
@@ -219,16 +219,17 @@ class Peer:
             elif hopCount > 0:
                 hopCount = hopCount - 1
             
-                request_map_lock.acquire()
-                self.requestMap[(originID, requestID)] = requestingPeerID
-                request_map_lock.release()
+#                request_map_lock.acquire()
+#                self.requestMap[(originID, requestID)] = requestingPeerID
+#                request_map_lock.release()
             
                 for pID,pURI in self.neighbours.items():
                     if(pID != requestingPeerID and pID!=originID):
                         if(not( pURI.contains_key(originID,requestID))):
-                            pURI.lookup(self.peerID, originID, requestID, item, hopCount)
+                            threading.Thread(target = pURI.lookup, args=[self.peerID, originID, requestID, item, hopCount]).start()
         except:
             print("Exiting lookup")
+
     def contains_key(self, originID,requestID):
         return (originID,requestID) in self.requestMap.keys()
     
