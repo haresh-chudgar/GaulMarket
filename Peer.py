@@ -56,6 +56,8 @@ class Peer:
         self.averageTime = 0
         self.itemsBought = 0
         self.maxHops = maxHops
+        self.parent = -1
+        self.max = seld.peerID
     
     #It is used to create connections between the peers in a randomized fashion
     def create_graph(self):
@@ -131,6 +133,55 @@ class Peer:
 
         print ("Added all the neighbours of the nodes in respective adjacency lists and everyone is ready to communicate")
     
+    
+    def check_parent():
+        return (self.parent==-1)
+    
+    def startElection(self):
+        for pID,pURI in self.neighbours.items():
+            print ("Calling lookup for "+self.peerID+" "+str(self.requestID)+" "+self.item+" to neighbor "+pID)
+            if(pURI.check_parent()):
+                threading.Thread(target = pURI.election_lookup, args=[self.peerID]).start()
+            #Check if parent is -1, take lock, set parent, release lock and call lookup
+        #pURI.lookup(self.peerID, self.peerID, self.requestID, self.item, self.maxHops)
+        pass
+    
+    def election_lookup( self, requestingPeerID):
+        if(self.parent==-1):
+            self.parent = requestingPeerID
+            forwarded = false
+            for pID,pURI in self.neighbours.items():
+                if(pID != requestingPeerID):
+                    if(pURI.check_parent()):
+                        self.requestMap[(pURI,"election")]= 1
+                        threading.Thread(target = pURI.election_lookup, args=[self.peerID]).start()
+                        forwarded = true
+            if(forwarded ==false):
+                self.neighbours[requestingPeerID].reply(self.peerID)
+
+    def reply(self, requestingPeerID):
+        #If I started election then this function should return by noting down the leader and call broadcast leader
+        #broadcast leader will update the requestmap of all reply and election types...
+        
+        if(self.peerID < requestingPeerID):#extract peer id number here
+            self.max = requestingPeerID
+        self.requestMap[(pURI,"reply")] = 1
+        all_set = false
+        for pID,pURI in self.neighbours.items():
+            if(self.requestMap[(pURI,"election")]==1):
+                if(not (self.requestMap[(pURI,"reply")] ==1)):
+                    all_set=false
+                    break
+            all_set=true
+        if(all_set):
+            for pID,pURI in self.neighbours.items():
+                if(pID != self.parent):
+                    threading.Thread(target = pURI.election_lookup, args=[self.max]).start()
+
+
+#update the max node id
+#if all replies heard great and reply to parent else exit
+
     def addNeighbour(self, pID, pURI):
         print("Neighbours is being added with node id = ",pID)
         self.neighbours[pID]  = Pyro4.Proxy(pURI)
