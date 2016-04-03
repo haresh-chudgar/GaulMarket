@@ -57,7 +57,7 @@ class Peer:
         self.itemsBought = 0
         self.maxHops = maxHops
         self.parent = -1
-        self.max = seld.peerID
+        self.max = self.peerID
     
     #It is used to create connections between the peers in a randomized fashion
     def create_graph(self):
