@@ -4,6 +4,7 @@ import Pyro4
 import random
 import threading
 import timeit
+from collections import deque
 
 buy_lock = threading.Lock()#Lock used by buyer when it establishes a connection with the seller to buy the product
 sell_lock = threading.Lock()#Lock used by seller to decrement he count of object when it is sold
@@ -43,24 +44,37 @@ class Peer:
         #chill
         
         self.peerType = peerType
-        self.hopCount = hopCount
-        self.currentRequestID = 0
         self.requestMap = {}
+        
+        #Config
+        self.hopCount = hopCount
         self.itemList = itemList
         self.noItems = noItems
         self.maxItems = noItems
         self.item = itemList[1]
+        self.maxHops = maxHops
+        
+        self.money = 0
         self.chooseItem()
         self.requestID = 0
         self.boughtItemsTime = {}
         self.averageTime = 0
         self.itemsBought = 0
-        self.maxHops = maxHops
+        
         self.parent = -1
         self.max = self.peerID
-        self.isLeader = False
         self.isLeaderElected = False
+        self.leaderURI = None
+
+        #Variables for trader        
+        self.isLeader = False
         self.itemsInMarket = {}
+        self.requestsQueue = deque()
+        
+        #For synchronization        
+        self.vectorClock = []
+        for i in range(maxID):
+            self.vectorClock.append(0)
     
     #It is used to create connections between the peers in a randomized fashion
     def create_graph(self):
@@ -136,7 +150,6 @@ class Peer:
 
         print ("Added all the neighbours of the nodes in respective adjacency lists and everyone is ready to communicate")
     
-    
     def check_parent(self):
         return (self.parent==-1)
     
@@ -180,7 +193,7 @@ class Peer:
         election_lock.acquire()        
         if(maxID < reqID):#extract peer id number here
             self.max = requestingPeerID
-        election_lock.release()
+        election_lock.r()
         self.requestMap[(requestingPeerID,"reply")] = 1
         all_set = False
         for pID,pURI in self.neighbours.items():
@@ -206,6 +219,7 @@ class Peer:
         if(self.isLeaderElected == True):
             return
         
+        self.leaderID = leaderID
         self.isLeaderElected = True
 
         print("Our new Leader is...", leaderID)
@@ -214,6 +228,7 @@ class Peer:
             print("I am assigned as leader")
         else:
             self.isLeader = False
+            self.leaderURI = self.nameServer.lookup(leaderID)
             
         for pID,pURI in self.neighbours.items():
             if(pID != requestID):
@@ -234,7 +249,6 @@ class Peer:
         
         self.item = self.itemList[itemIndex]
         self.noItems = self.maxItems
-
     
     def registerItems(self, myIP, myPort):
         daemon=Pyro4.Daemon(port = myPort, host=myIP)
@@ -242,53 +256,42 @@ class Peer:
         self.nameServer.register(self.peerID, self.pURI)
         print("Registered " + self.peerID + "on nameserver with URI:" + str(self.pURI))
         return daemon
-    
-    """this procedure should search the network; all matching sellers
-    respond to this message with their IDs. The hopcount is decremented at 
-    each hop and the message is discarded when it reaches 0"""
-    def lookup (self,requestingPeerID, originID, requestID, item, hopCount):
-        print("Function lookup of "+self.peerID," Origin is ",originID," request id is ",requestID," hop count",hopCount)
 
-        try:
-            if(self.isLeader):
-                #do something
-                #print (self.neighbours)
-                #print(requestingPeerID," Reuqesting id")
-                print("Reply from seller for request originated at ",originID," and id is ",requestID)
-                #threading.Thread(target = self.neighbours[requestingPeerID].reply, args=[self.peerID, originID, requestID]).start()
-                self.neighbours[requestingPeerID].reply(self.peerID, originID, requestID)
-            elif hopCount > 0:
-                hopCount = hopCount - 1
-            
-                for pID,pURI in self.neighbours.items():
-                    if(pID != requestingPeerID and pID!=originID):
-                        if(not( pURI.contains_key(originID,requestID))):
-                            threading.Thread(target = pURI.lookup, args=[self.peerID, originID, requestID, item, hopCount]).start()
-        except:
-            print("Exiting lookup")
-
-    def contains_key(self, originID,requestID):
-        return (originID,requestID) in self.requestMap.keys()
+    def addItemsFromSeller(self,sellerID,items):
+        #TODO: Lock required
+        for item,count in items:
+            self.itemsInMarket[item].append([sellerID,count])
     
-    """ if multiple sellers respond, the buyer picks one at random, and 
-    contacts it directly with the buy message. A buy causes the seller to 
-    decrement the number of items in stock."""
+    def replenishStock(self):
+        self.chooseItem()
+        self.leaderID.addItemsFromSeller(self.peerID,[self.item, self.noItems])
+    
+    def commissionForItem(self,item,commission):
+        self.money += commission
+        self.noItems -= 1
+        if(self.noItems == 0):
+            threading.Thread(target = self.replenishStock).start()
+    
     def buy(self, item, peerID):
-        #TODO:locking required
+        if(self.isLeader == False):
+            print("Illegal buy recieved from {0}".format(peerID))
+            return
+        retValue = False
         try:
             sell_lock.acquire()
-            if(self.item == item and self.noItems > 0):
-                self.noItems -= 1
-                if(self.noItems == 0):
-                    self.chooseItem()
-                print("SOLD  item = "+item+" to peer = "+peerID, "Items left = ",self.noItems)
-                sell_lock.release()
-                return True
-            else:
-                sell_lock.release()
-                return False
+            flag = True
+            while(flag):
+                flag = False
+                if(item not in self.itemsInMarket):
+                    break
+                seller = random.choice(self.itemsInMarket[item])
+                seller.commissionForItem(item,10)
+                retValue = True
         except:
             print("Exiting buy")
+        finally:
+            sell_lock.release()
+        return retValue            
 
     def buyAnotherItem(self):
         self.chooseItem()
@@ -297,10 +300,12 @@ class Peer:
         self.boughtItemsTime[self.requestID] = timeit.default_timer()
         self.requestMap[(self.peerID,self.requestID)] = self.peerID
         #print (self.requestMap,"Request map begore buying")
-        for pID,pURI in self.neighbours.items():
-            print ("Calling lookup for "+self.peerID+" "+str(self.requestID)+" "+self.item+" to neighbor "+pID)
-            threading.Thread(target = pURI.lookup, args=[self.peerID, self.peerID, self.requestID, self.item, self.maxHops]).start()
-                #pURI.lookup(self.peerID, self.peerID, self.requestID, self.item, self.maxHops)
-        pass
-    
-
+        if(self.leaderURI != None):
+            isSuccess = self.leaderID.buy(self.item, self.peerID)
+            if(isSuccess):
+                print("Bought {0}".format(self.item))
+            else:
+                print("Could not buy {0}".format(self.item))
+        else:
+            print("Leader not elected yet")
+            
