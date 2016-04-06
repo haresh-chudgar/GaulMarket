@@ -48,7 +48,7 @@ print("-------------------------------------------------------------------------
 print("\t\t\t\tPeer ID is ",peerID," and Type is ",peerType)
 print("--------------------------------------------------------------------------------------------------------")
 print("\t\t\t The server IP is ", serverIP)
-p1 = Peer(peerType,peerID,maxID,num_neighbour,hopCount,itmLst,numItem,hopCount,myIP,port)
+p1 = Peer(peerType,peerID,maxID,num_neighbour,itmLst,numItem,hopCount,myIP,port)
 
 print(peerID, maxID)
 if(int(peerID) == 1):#int(maxID)):
@@ -65,8 +65,8 @@ if(peerType=="BUYER"):
     print("Buyer is Ready, starting to buy")
     while(1):
         start = timeit.default_timer()
-        #print ("Start time to buy this item is ",start," Item is "+str(item_no) )
-        #threading.Thread(target = p1.buyAnotherItem).start()
+        print ("Start time to buy this item is ",start," Item is "+str(item_no) )
+        threading.Thread(target = p1.buyAnotherItem).start()
         time.sleep(3)
 
 

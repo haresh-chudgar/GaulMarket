@@ -351,7 +351,8 @@ class Peer:
     def multicastClock(self):
         for pID, pURI in self.nameServer.list(prefix="gaul.market.").items():
             if(pID != self.leaderID and pID != self.peerID):
-                pURI.updateTimeStamp(self.peerID, self.clock)
+                pURIhandle = Pyro4.Proxy(pURI)
+                pURIhandle.updateTimeStamp(self.peerID, self.clock.clock)
     
     def buyAnotherItem(self):
         self.chooseItem()
@@ -362,7 +363,11 @@ class Peer:
         if(self.leaderURI != None):
             self.clock.addTime(int(self.peerID.replace("gaul.market.", "")))
             threading.Thread(target = self.multicastClock).start()
-            self.leaderURI.buy(self.item, self.peerID, self.clock)
+            for pID, pURI in self.nameServer.list(prefix="gaul.market.").items():
+                if(pID == self.leaderID):
+                    pURIhandle = Pyro4.Proxy(pURI)
+                    pURIhandle.buy(self.item, self.peerID, self.clock.clock)
+        #self.leaderURI.buy(self.item, self.peerID, self.clock)
         else:
             print("Leader not elected yet")
             
