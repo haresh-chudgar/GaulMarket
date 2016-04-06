@@ -240,10 +240,12 @@ class Peer:
             print("I am assigned as leader")
         else:
             self.isLeader = False
+            self.leaderURI = self.nameServer
             self.leaderURI = self.nameServer.lookup(leaderID)
             leaderProxy = Pyro4.Proxy(self.leaderURI)
-            leaderProxy.addItemsFromSeller(self.peerID,[self.item, self.noItems])
-        
+            leaderProxy.addItemsFromSeller(self.peerID,{self.item:self.noItems})
+
+
         for pID,pURI in self.neighbours.items():
             if(pID != requestID):
                 threading.Thread(target = pURI.broadcastElectionResult, args=[self.peerID, leaderID]).start()
@@ -271,7 +273,7 @@ class Peer:
             
     """Pick randomly from self.items and reset noItems"""
     def chooseItem(self):
-        itemIndex = int(random.random() * len(self.itemList))
+        itemIndex = 0#int(random.random() * len(self.itemList))
         if(itemIndex == len(self.itemList)):
             itemIndex = len(self.itemList) - 1
         
@@ -285,16 +287,24 @@ class Peer:
         print("Registered " + self.peerID + "on nameserver with URI:" + str(self.pURI))
         return daemon
 
-    def addItemsFromSeller(self,sellerID,items):
+    def addItemsFromSeller(self,sellerID,itemsdict):
         #TODO: Lock required
-        for item,count in items:
+        print (itemsdict)
+        for item,count in itemsdict.items():
+            if(item not in self.itemsInMarket):
+                self.itemsInMarket[item]=[]
             self.itemsInMarket[item].append([sellerID,count])
+        print (self.itemsInMarket[item])
     
     def replenishStock(self):
         self.chooseItem()
-        self.leaderID.addItemsFromSeller(self.peerID,[self.item, self.noItems])
+        leaderURI = self.nameServer.lookup(self.leaderID)
+        leaderURI = Pyro4.Proxy(leaderURI)
+
+        leaderURI.addItemsFromSeller(self.peerID,{self.item: self.noItems})
     
     def commissionForItem(self,item,commission):
+        print("commision given to me")
         self.money += commission
         self.noItems -= 1
         if(self.noItems == 0):
@@ -325,19 +335,25 @@ class Peer:
             self.buy(self, request[2], request[1], request[0])
     
     def processBuyRequest(self, item, peerID, timeStamp):
+      
         buyerURI = self.nameServer.lookup(peerID)
         buyerURI = Pyro4.Proxy(buyerURI)
         isSold = False
-        try:
-            sell_lock.acquire()
-            if(item in self.itemsInMarket):
-                seller = random.choice(self.itemsInMarket[item])
-                seller.commissionForItem(item,10)
-                isSold = True
-        except:
-            print("Exiting buy")
-        finally:
-            sell_lock.release()
+            #try:
+        sell_lock.acquire()
+        print ("Itemrs in market are")
+        print (self.itemsInMarket)
+        print (item)
+        if(item in self.itemsInMarket):
+            seller = "gaul.market.1"#random.choice(self.itemsInMarket[item])
+            URI = self.nameServer.lookup(seller)
+            seller = Pyro4.Proxy(URI)
+            seller.commissionForItem(item,10)
+            isSold = True
+        #except:
+        #    print("Exiting buy")
+        #finally:
+        sell_lock.release()
         self.clock.addTime(int(self.peerID.replace("gaul.market.", "")))
         threading.Thread(target = self.multicastClock).start()
         buyerURI.sell(isSold, item, timeStamp)
