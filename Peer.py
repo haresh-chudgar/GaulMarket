@@ -241,7 +241,9 @@ class Peer:
         else:
             self.isLeader = False
             self.leaderURI = self.nameServer.lookup(leaderID)
-            
+            leaderProxy = Pyro4.Proxy(self.leaderURI)
+            leaderProxy.addItemsFromSeller(self.peerID,[self.item, self.noItems])
+        
         for pID,pURI in self.neighbours.items():
             if(pID != requestID):
                 threading.Thread(target = pURI.broadcastElectionResult, args=[self.peerID, leaderID]).start()
@@ -298,14 +300,33 @@ class Peer:
         if(self.noItems == 0):
             threading.Thread(target = self.replenishStock).start()
 
+    def cmp_to_key(self, mycmp):
+        class K(object):
+            def __init__(self, obj, *args):
+                self.obj = obj
+            def __lt__(self, other):
+                return mycmp(self.obj, other.obj) < 0
+            def __gt__(self, other):
+                return mycmp(self.obj, other.obj) > 0
+            def __eq__(self, other):
+                return mycmp(self.obj, other.obj) == 0
+            def __le__(self, other):
+                return mycmp(self.obj, other.obj) <= 0
+            def __ge__(self, other):
+                return mycmp(self.obj, other.obj) >= 0
+            def __ne__(self, other):
+                return mycmp(self.obj, other.obj) != 0
+        return K
+    
     def processList(self):
-        requestsList = sorted(self.requestsList, cmp=lambda x,y: x.compare(y))
+        requestsList = sorted(self.requestsList, key=self.cmp_to_key(lambda x,y: x.compare(y)))
         self.requestsList.clear()
         for request in requestsList:
             self.buy(self, request[2], request[1], request[0])
     
     def processBuyRequest(self, item, peerID, timeStamp):
         buyerURI = self.nameServer.lookup(peerID)
+        buyerURI = Pyro4.Proxy(buyerURI)
         isSold = False
         try:
             sell_lock.acquire()
@@ -326,7 +347,7 @@ class Peer:
         if(self.isLeader == False):
             print("Illegal buy recieved from {0}".format(peerID))
             return
-        isError = self.clock.isError(peerID.replace("gaul.maket.", ""), timeStamp)
+        isError = self.clock.isError(int(peerID.replace("gaul.market.", "")), timeStamp)
         if(isError == True):
             self.requestList.append([timeStamp, peerID, item])
         else:
@@ -339,11 +360,11 @@ class Peer:
         print("{0} timestamped at {1}: {2}".format(item, timestamp, isSold))
     
     def updateTimeStamp(self, peerID, timestamp):
-        peerID = peerID.replace("gaul.market.","")
+        peerID = int(peerID.replace("gaul.market.",""))
         isError = self.clock.isError(peerID, timestamp)
         if(isError == True):
             print("Error in timestamp from {0}! {1} {2}".format(peerID, timestamp, self.clock.clock))
-            print("{0}: {1}".format(self.peerID.replace("gaul.market.",""), timestamp))
+            print("{0}: {1}".format(int(self.peerID.replace("gaul.market.","")), timestamp))
             print("{0}: {1}".format(peerID, self.clock.clock))
         self.clock.update(timestamp)
 
