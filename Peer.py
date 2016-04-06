@@ -4,6 +4,7 @@ import Pyro4
 import random
 import threading
 import timeit
+import VectorClock
 from collections import deque
 
 buy_lock = threading.Lock()#Lock used by buyer when it establishes a connection with the seller to buy the product
@@ -12,7 +13,7 @@ request_map_lock  = threading.Lock()#Lock to update the request map
 election_lock  =  threading.Lock()
 
 class Peer:
-    def __init__(self, peerType, peerID, maxID, num_neighbours, hopCount, itemList, noItems, maxHops, myIP, myPort):
+    def __init__(self, peerType, peerID, maxID, num_neighbours, itemList, noItems, maxHops, myIP, myPort):
         
         #Name server helps it connect to peers through names
         self.nameServer = Pyro4.locateNS()
@@ -32,9 +33,6 @@ class Peer:
         self.neighbours = {}
         
         self.maxID = int(maxID)
-        #print (self.peerID)
-        #print (domain+str(self.maxID))
-        #print (self.peerID == domain+str(self.maxID))
         
         #Create the graph when the node id is same as the max id of the node given in config file
         if(self.peerID == domain+str(1)):#self.maxID)):
@@ -47,7 +45,6 @@ class Peer:
         self.requestMap = {}
         
         #Config
-        self.hopCount = hopCount
         self.itemList = itemList
         self.noItems = noItems
         self.maxItems = noItems
@@ -65,16 +62,16 @@ class Peer:
         self.max = self.peerID
         self.isLeaderElected = False
         self.leaderURI = None
-
+        self.resigning = False
+        
         #Variables for trader        
         self.isLeader = False
         self.itemsInMarket = {}
         self.requestsQueue = deque()
         
         #For synchronization        
-        self.vectorClock = []
-        for i in range(maxID):
-            self.vectorClock.append(0)
+        self.clock = VectorClock.VectorClock(maxID)
+        
     
     #It is used to create connections between the peers in a randomized fashion
     def create_graph(self):
@@ -166,6 +163,9 @@ class Peer:
                 threading.Thread(target = pURI.election_lookup, args=[self.peerID]).start()
     
     def election_lookup( self, requestingPeerID):
+        if(self.resigning):
+            #self.neighbours[requestingPeerID].election_reply(self.peerID, self.peerID)
+            return
         self.isLeaderElected = False
         self.isLeader = False
         election_lock.acquire()
@@ -181,37 +181,45 @@ class Peer:
                         threading.Thread(target = pURI.election_lookup, args=[self.peerID]).start()
                         forwarded = True
             if(forwarded ==False):
-                self.neighbours[requestingPeerID].election_reply(self.peerID)
+                self.neighbours[requestingPeerID].election_reply(self.peerID, self.peerID)
         election_lock.release()
 
-    def election_reply(self, requestingPeerID):
+    def election_reply(self, requestingPeerID, neighborID):
         #If I started election then this function should return by noting down the leader and call broadcast leader
         #broadcast leader will update the requestmap of all reply and election types...
+        if(self.resigning):
+            return
         print("Election Reply", requestingPeerID)
         reqID = int(requestingPeerID.replace("gaul.market.", ""));
         maxID = int(self.max.replace("gaul.market.", ""));
         election_lock.acquire()        
         if(maxID < reqID):#extract peer id number here
             self.max = requestingPeerID
-        election_lock.r()
-        self.requestMap[(requestingPeerID,"reply")] = 1
+        election_lock.release()
+        self.requestMap[(neighborID,"reply")] = 1
         all_set = False
         for pID,pURI in self.neighbours.items():
             print(self.requestMap)
-            if(self.requestMap[(requestingPeerID,"election")]==1):
-                if(not (self.requestMap[(requestingPeerID,"reply")] ==1)):
+            #print(self.requestMap[(requestingPeerID,"election")])
+            print(requestingPeerID)
+            if((pID,"election") in self.requestMap):
+                if(not ( (pID,"reply") in self.requestMap)):
                     all_set=False
                     break
             all_set=True
+        print(" Replydone", requestingPeerID)
+
         if(all_set):
+            print(self.requestMap)
+            print(self.neighbours.items())
             if(self.parent == self.peerID):
                 print("Leader is " + self.max)
                 threading.Thread(target = self.broadcastElectionResult, args=[self.peerID, self.max]).start()
             else:
                 self.requestMap.clear()
                 for pID,pURI in self.neighbours.items():
-                    if(pID != self.parent):
-                        threading.Thread(target = pURI.election_lookup, args=[self.max]).start()
+                    if(pID == self.parent):
+                        threading.Thread(target = pURI.election_reply, args=[self.max, self.peerID]).start()
             self.parent=-1
 
     def broadcastElectionResult(self, requestID, leaderID):
@@ -221,7 +229,7 @@ class Peer:
         
         self.leaderID = leaderID
         self.isLeaderElected = True
-
+        self.parent = -1
         print("Our new Leader is...", leaderID)
         if(leaderID == self.peerID):
             self.isLeader = True
@@ -233,6 +241,21 @@ class Peer:
         for pID,pURI in self.neighbours.items():
             if(pID != requestID):
                 threading.Thread(target = pURI.broadcastElectionResult, args=[self.peerID, leaderID]).start()
+    
+
+    def resign_leader(self):
+        if(self.isLeader):
+            print("I would like to resign")
+            #update resigning
+            self.resigning = True
+            for pID,pURI in self.neighbours.items():
+                print("Starting election called of ",pID)
+                pURI.startElection()
+                break
+                #Stop buying anything I am resigning
+                #In case he is resigning then dont take part in leader election
+                # add a clause that
+                #if resiginig then dont forward the request and dont reply anything...
                     
 #update the max node id
 #if all replies heard great and reply to parent else exit
@@ -272,7 +295,7 @@ class Peer:
         if(self.noItems == 0):
             threading.Thread(target = self.replenishStock).start()
     
-    def buy(self, item, peerID):
+    def buy(self, item, peerID, timeStamp):
         if(self.isLeader == False):
             print("Illegal buy recieved from {0}".format(peerID))
             return
@@ -298,10 +321,9 @@ class Peer:
         print ("Planning to buy",self.item)
         self.requestID += 1
         self.boughtItemsTime[self.requestID] = timeit.default_timer()
-        self.requestMap[(self.peerID,self.requestID)] = self.peerID
-        #print (self.requestMap,"Request map begore buying")
+        
         if(self.leaderURI != None):
-            isSuccess = self.leaderID.buy(self.item, self.peerID)
+            isSuccess = self.leaderID.buy(self.item, self.peerID, self.clock)
             if(isSuccess):
                 print("Bought {0}".format(self.item))
             else:
