@@ -67,7 +67,7 @@ class Peer:
         #Variables for trader        
         self.isLeader = False
         self.itemsInMarket = {}
-        self.requestsQueue = deque()
+        self.requestsList = []
         
         #For synchronization        
         self.clock = VectorClock.VectorClock(maxID)
@@ -150,6 +150,7 @@ class Peer:
     def check_parent(self):
         return (self.parent==-1)
     
+    
     def startElection(self):
         print("Starting Election")
         self.isLeaderElected = False
@@ -164,7 +165,8 @@ class Peer:
     
     def election_lookup( self, requestingPeerID):
         if(self.resigning):
-            #self.neighbours[requestingPeerID].election_reply(self.peerID, self.peerID)
+            myid = "gaul.market.0"
+            self.neighbours[requestingPeerID].election_reply(myid, self.peerID)
             return
         self.isLeaderElected = False
         self.isLeader = False
@@ -181,14 +183,15 @@ class Peer:
                         threading.Thread(target = pURI.election_lookup, args=[self.peerID]).start()
                         forwarded = True
             if(forwarded ==False):
+                election_lock.release()
                 self.neighbours[requestingPeerID].election_reply(self.peerID, self.peerID)
+                return
         election_lock.release()
 
     def election_reply(self, requestingPeerID, neighborID):
         #If I started election then this function should return by noting down the leader and call broadcast leader
         #broadcast leader will update the requestmap of all reply and election types...
-        if(self.resigning):
-            return
+       
         print("Election Reply", requestingPeerID)
         reqID = int(requestingPeerID.replace("gaul.market.", ""));
         maxID = int(self.max.replace("gaul.market.", ""));
@@ -216,7 +219,6 @@ class Peer:
                 print("Leader is " + self.max)
                 threading.Thread(target = self.broadcastElectionResult, args=[self.peerID, self.max]).start()
             else:
-                self.requestMap.clear()
                 for pID,pURI in self.neighbours.items():
                     if(pID == self.parent):
                         threading.Thread(target = pURI.election_reply, args=[self.max, self.peerID]).start()
@@ -230,6 +232,7 @@ class Peer:
         self.leaderID = leaderID
         self.isLeaderElected = True
         self.parent = -1
+        self.requestMap.clear()
         print("Our new Leader is...", leaderID)
         if(leaderID == self.peerID):
             self.isLeader = True
@@ -241,7 +244,6 @@ class Peer:
         for pID,pURI in self.neighbours.items():
             if(pID != requestID):
                 threading.Thread(target = pURI.broadcastElectionResult, args=[self.peerID, leaderID]).start()
-    
 
     def resign_leader(self):
         if(self.isLeader):
@@ -256,7 +258,7 @@ class Peer:
                 #In case he is resigning then dont take part in leader election
                 # add a clause that
                 #if resiginig then dont forward the request and dont reply anything...
-                    
+
 #update the max node id
 #if all replies heard great and reply to parent else exit
 
@@ -294,28 +296,63 @@ class Peer:
         self.noItems -= 1
         if(self.noItems == 0):
             threading.Thread(target = self.replenishStock).start()
+
+    def processList(self):
+        requestsList = sorted(self.requestsList, cmp=lambda x,y: x.compare(y))
+        self.requestsList.clear()
+        for request in requestsList:
+            self.buy(self, request[2], request[1], request[0])
+    
+    def processBuyRequest(self, item, peerID, timeStamp):
+        
+        buyerURI = self.nameServer.lookup(peerID)
+        isSold = False
+        try:
+            sell_lock.acquire()
+            if(item not in self.itemsInMarket):
+                 break
+            seller = random.choice(self.itemsInMarket[item])
+            seller.commissionForItem(item,10)
+            isSold = True
+        except:
+            print("Exiting buy")
+        finally:
+            sell_lock.release()
+        self.clock.addTime(self.peerID.replace("gaul.market.", ""))
+        threading.Thread(target = self.multicastClock).start()
+        buyerURI.sell(isSold, item, timeStamp)
+        
     
     def buy(self, item, peerID, timeStamp):
         if(self.isLeader == False):
             print("Illegal buy recieved from {0}".format(peerID))
             return
-        retValue = False
-        try:
-            sell_lock.acquire()
-            flag = True
-            while(flag):
-                flag = False
-                if(item not in self.itemsInMarket):
-                    break
-                seller = random.choice(self.itemsInMarket[item])
-                seller.commissionForItem(item,10)
-                retValue = True
-        except:
-            print("Exiting buy")
-        finally:
-            sell_lock.release()
-        return retValue            
+        isError = self.clock.isError(peerID.replace("gaul.maket.", ""), timeStamp)
+        if(isError == True):
+            self.requestList.append([timeStamp, peerID, item])
+        else:
+            self.clock.update(timeStamp)
+            self.processBuyRequest(item, peerID, timeStamp)
+            self.processList()
 
+    def sell(self, isSold, item, timestamp):
+        self.clock.update(timestamp)
+        print("{0} timestamped at {1}: {2}".format(item, timestamp, isSold))
+    
+    def updateTimeStamp(self, peerID, timestamp):
+        peerID = peerID.replace("gaul.market.","")
+        isError = self.clock.isError(peerID, timestamp)
+        if(isError == True):
+            print("Error in timestamp from {0}! {1} {2}".format(peerID, timestamp, self.clock))
+            print("{0}: {1}".format(self.peerID.replace("gaul.market.",""), timestamp))
+            print("{0}: {1}".format(peerID, self.clock))
+        self.clock.update(timestamp)
+
+    def multicastClock(self):
+        for pID, pURI in self.nameServer.list(prefix="gaul.market.").items():
+            if(pID != self.leaderID and pID != self.peerID):
+                pURI.updateTimeStamp(self.peerID, self.clock)
+    
     def buyAnotherItem(self):
         self.chooseItem()
         print ("Planning to buy",self.item)
@@ -323,11 +360,9 @@ class Peer:
         self.boughtItemsTime[self.requestID] = timeit.default_timer()
         
         if(self.leaderURI != None):
-            isSuccess = self.leaderID.buy(self.item, self.peerID, self.clock)
-            if(isSuccess):
-                print("Bought {0}".format(self.item))
-            else:
-                print("Could not buy {0}".format(self.item))
+            self.clock.addTime(self.peerID.replace("gaul.market.", ""))
+            threading.Thread(target = self.multicastClock).start()
+            self.leaderURI.buy(self.item, self.peerID, self.clock)
         else:
             print("Leader not elected yet")
             
