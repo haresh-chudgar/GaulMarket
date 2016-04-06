@@ -70,7 +70,7 @@ class Peer:
         self.requestsList = []
         
         #For synchronization        
-        self.clock = VectorClock.VectorClock(maxID)
+        self.clock = VectorClock.VectorClock(self.maxID)
         
     
     #It is used to create connections between the peers in a randomized fashion
@@ -123,6 +123,7 @@ class Peer:
             i+=1
         
         #neigh={1: [ 3,4, 5], 2: [ 4,5, 6], 3: [ 1,4, 6], 4: [1,2, 3], 5: [1,2, 3], 6: [1,2, 3]}
+        neigh={1: [ 2, 3], 2: [1, 4], 3: [ 1, 4], 4: [2,3]}
         print ("Graph of nodes is the following")
 
         print (neigh)
@@ -222,7 +223,7 @@ class Peer:
                 for pID,pURI in self.neighbours.items():
                     if(pID == self.parent):
                         threading.Thread(target = pURI.election_reply, args=[self.max, self.peerID]).start()
-            self.parent=-1
+            
 
     def broadcastElectionResult(self, requestID, leaderID):
         
@@ -309,16 +310,15 @@ class Peer:
         isSold = False
         try:
             sell_lock.acquire()
-            if(item not in self.itemsInMarket):
-                 break
-            seller = random.choice(self.itemsInMarket[item])
-            seller.commissionForItem(item,10)
-            isSold = True
+            if(item in self.itemsInMarket):
+                seller = random.choice(self.itemsInMarket[item])
+                seller.commissionForItem(item,10)
+                isSold = True
         except:
             print("Exiting buy")
         finally:
             sell_lock.release()
-        self.clock.addTime(self.peerID.replace("gaul.market.", ""))
+        self.clock.addTime(int(self.peerID.replace("gaul.market.", "")))
         threading.Thread(target = self.multicastClock).start()
         buyerURI.sell(isSold, item, timeStamp)
         
@@ -360,7 +360,7 @@ class Peer:
         self.boughtItemsTime[self.requestID] = timeit.default_timer()
         
         if(self.leaderURI != None):
-            self.clock.addTime(self.peerID.replace("gaul.market.", ""))
+            self.clock.addTime(int(self.peerID.replace("gaul.market.", "")))
             threading.Thread(target = self.multicastClock).start()
             self.leaderURI.buy(self.item, self.peerID, self.clock)
         else:

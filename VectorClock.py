@@ -2,8 +2,11 @@
 
 class VectorClock:
     def __init__(self, N):
-        self.N = N
+        self.N = N+1
         self.clock = []
+        for i in range(N):
+            self.clock.append(0)
+        self.clock.append(0)
     
     def compare(self, time):
         lesser = 0
