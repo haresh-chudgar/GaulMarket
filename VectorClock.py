@@ -12,9 +12,9 @@ class VectorClock:
         lesser = 0
         greater = 0
         for i in range(self.N):
-            if(self.clock[i] < time.clock[i]):
+            if(self.clock[i] < time[i]):
                 lesser += 1
-            elif(self.clock[i] > time.clock[i]):
+            elif(self.clock[i] > time[i]):
                 greater += 1
         if(lesser > 0 and greater > 0):
             return 0
@@ -34,16 +34,16 @@ class VectorClock:
                 self.clock[i] = time[i]
                 
     def isError(self, p, time):
-        if(self.clock[p] - time.clock[p] != 1):
+        if(self.clock[p] - time[p] != 1):
             return False
             
         for i in range(self.N):
-            if(i != p and self.clock[i] != time.clock[i]):
+            if(i != p and self.clock[i] != time[i]):
                 return False
         return True
             
     def diff(self, time):
         retVal = 0
         for i in range(self.N):
-            retVal += abs(self.clock[i] - time.clock[i])
+            retVal += abs(self.clock[i] - time[i])
         return retVal

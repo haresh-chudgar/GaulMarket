@@ -305,7 +305,6 @@ class Peer:
             self.buy(self, request[2], request[1], request[0])
     
     def processBuyRequest(self, item, peerID, timeStamp):
-        
         buyerURI = self.nameServer.lookup(peerID)
         isSold = False
         try:
@@ -343,9 +342,9 @@ class Peer:
         peerID = peerID.replace("gaul.market.","")
         isError = self.clock.isError(peerID, timestamp)
         if(isError == True):
-            print("Error in timestamp from {0}! {1} {2}".format(peerID, timestamp, self.clock))
+            print("Error in timestamp from {0}! {1} {2}".format(peerID, timestamp, self.clock.clock))
             print("{0}: {1}".format(self.peerID.replace("gaul.market.",""), timestamp))
-            print("{0}: {1}".format(peerID, self.clock))
+            print("{0}: {1}".format(peerID, self.clock.clock))
         self.clock.update(timestamp)
 
     def multicastClock(self):
@@ -367,7 +366,6 @@ class Peer:
                 if(pID == self.leaderID):
                     pURIhandle = Pyro4.Proxy(pURI)
                     pURIhandle.buy(self.item, self.peerID, self.clock.clock)
-        #self.leaderURI.buy(self.item, self.peerID, self.clock)
         else:
             print("Leader not elected yet")
             
