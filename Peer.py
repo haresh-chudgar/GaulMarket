@@ -6,7 +6,6 @@ import random
 import threading
 import timeit
 import VectorClock
-from collections import deque
 
 buy_lock = threading.Lock()#Lock used by buyer when it establishes a connection with the seller to buy the product
 sell_lock = threading.Lock()#Lock used by seller to decrement he count of object when it is sold
@@ -14,67 +13,304 @@ request_map_lock  = threading.Lock()#Lock to update the request map
 election_lock  =  threading.Lock()
 
 class Peer:
-    def __init__(self, peerType, peerID, maxID, num_neighbours, itemList, noItems, maxHops, myIP, myPort):
+    def __init__(self, peerType, peerID, maxID, num_neighbours, itemList, noItems, myIP, myPort):
         
         #Name server helps it connect to peers through names
         self.nameServer = Pyro4.locateNS()
-        
         domain = "gaul.market."
-        
         self.peerID = domain+peerID
-        
         daemon =  self.registerItems(myIP, myPort)
-        
         #A thread continues to listen incoming requests at the peer
         threading.Thread(target = daemon.requestLoop).start()
         
         #If the peer ID = maxPeer id then calculate the neighbours and add the edges in a different function
         self.num_neighbours = num_neighbours
-        
         self.neighbours = {}
         
         self.maxID = int(maxID)
-        
-        #Create the graph when the node id is same as the max id of the node given in config file
-        if(self.peerID == domain+str(1)):#self.maxID)):
-            #create a graph and add the neighbors
-            self.create_graph()
-        #else:
-        #chill
-        
-        self.peerType = peerType
-        self.requestMap = {}
-        
-        #Config
+        self.connectToNeighbours()
+
+        #Config for selling
         self.itemList = itemList
         self.noItems = noItems
         self.maxItems = noItems
-        self.item = itemList[1]
-        self.maxHops = maxHops
+        self.itemToSell = None
+        self.chooseItemToSell()
         
         self.money = 0
-        self.chooseItem()
         self.requestID = 0
         self.boughtItemsTime = {}
         self.averageTime = 0
-        self.itemsBought = 0
         
-        self.parent = -1
-        self.max = self.peerID
         self.isLeaderElected = False
-        self.leaderURI = None
-        self.resigning = False
         
         #Variables for trader        
+        self.resigning = False
         self.isLeader = False
         self.itemsInMarket = {}
         self.requestsList = []
-        self.got_ok = False
+        self.got_ok = 0
+        self.leaderID = None
+        self.leaderProxy = None
+        
         #For synchronization        
         self.clock = VectorClock.VectorClock(self.maxID)
         
+        #If all peers on the network, start election
+        if(len(self.neighbours) + 1 == self.maxID):
+            threading.Thread(target = self.startElection()).start()
+        
+    def connectToNeighbours(self):
+        for pID, pURI in self.nameServer.list(prefix="gaul.market.").items():
+            if(pID != self.peerID):
+                self.neighbours[pID]  = Pyro4.Proxy(pURI)
+        print(self.neighbours)
     
-    #It is used to create connections between the peers in a randomized fashion
+    def startElection(self):
+        print("Starting Election")
+        self.isLeaderElected = False
+        self.isLeader = False
+        self.got_ok = 0
+        for pID,pURI in self.neighbours.items():
+            id = int(pID.replace("gaul.market.",""))
+            myid = int(self.peerID.replace("gaul.market.",""))
+            print(id,myid)
+            if(id>myid):
+                print("Calling lookup", pID)
+                threading.Thread(target = pURI.election_lookup, args=[self.peerID]).start()
+        time.sleep(1)
+        if(not(self.got_ok==1)):
+            self.broadcastElectionResult(self.peerID) #I am the leader
+
+    def ok(self):
+        if(self.isLeaderElected==True):
+            return
+        self.got_ok=1
+
+    def election_lookup( self, requestingPeerID):
+        #reply OK
+        print("Lookup called ", requestingPeerID,self.got_ok)
+        self.isLeaderElected=False
+        if(self.resigning):
+            return
+        if(len(self.neighbours) < self.maxID):
+            self.connectToNeighbours()
+            
+        self.neighbours[requestingPeerID].ok()
+        for pID,pURI in self.neighbours.items():
+            id = int(pID.replace("gaul.market.",""))
+            myid = int(self.peerID.replace("gaul.market.",""))
+            if(id>myid):
+                print("Calling lookup", pID)
+                threading.Thread(target = pURI.election_lookup, args=[self.peerID]).start()
+        time.sleep(1)
+        print(self.got_ok)
+        if(not(self.got_ok==1) and not(self.isLeaderElected) ):
+            self.broadcastElectionResult(self.peerID)
+    
+    def broadcastElectionResult(self, leaderID):
+        
+        self.isLeaderElected = True
+        self.got_ok=0
+        if(self.peerID != leaderID):        
+            print("Our new Leader is...", leaderID)
+            self.leaderID = leaderID
+            self.leaderProxy = self.nameServer.lookup(leaderID)
+            self.isLeader = False
+            self.leaderProxy = Pyro4.Proxy(self.leaderProxy)
+            self.leaderProxy.addItemsFromSeller(self.peerID,{self.itemToSell:self.noItems})
+        else:
+            self.isLeader = True
+            print("I am assigned as leader")
+            for pID,pURI in self.neighbours.items():
+                threading.Thread(target = pURI.broadcastElectionResult, args=[self.peerID]).start()
+
+        
+    def resign_leader(self):
+        if(self.isLeader):
+            print("I would like to resign")
+            #update resigning
+            self.resigning = True
+            for pID,pURI in self.neighbours.items():
+                print("Starting election called of ",pID)
+                pURI.startElection()
+                break
+                #Stop buying anything I am resigning
+                #In case he is resigning then dont take part in leader election
+                # add a clause that
+                #if resiginig then dont forward the request and dont reply anything...
+
+#update the max node id
+#if all replies heard great and reply to parent else exit
+            
+    """Pick randomly from self.items and reset noItems"""
+    def chooseItemToSell(self):
+        itemIndex = int(random.random() * len(self.itemList))
+        if(itemIndex == len(self.itemList)):
+            itemIndex = len(self.itemList) - 1
+        
+        self.itemToSell = self.itemList[itemIndex]
+        self.noItems = self.maxItems
+    
+    def chooseItemToBuy(self):
+        itemIndex = int(random.random() * len(self.itemList))
+        if(itemIndex == len(self.itemList)):
+            itemIndex = len(self.itemList) - 1
+        return self.itemList[itemIndex]
+    
+    def registerItems(self, myIP, myPort):
+        daemon=Pyro4.Daemon(port = myPort, host=myIP)
+        self.pURI = daemon.register(self)
+        self.nameServer.register(self.peerID, self.pURI)
+        print("Registered " + self.peerID + "on nameserver with URI:" + str(self.pURI))
+        return daemon
+
+    def addItemsFromSeller(self,sellerID,itemsdict):
+        #TODO: Lock required
+        print("Registering items from {0}".format(sellerID))
+        print (itemsdict)
+        for item,count in itemsdict.items():
+            if(item not in self.itemsInMarket):
+                self.itemsInMarket[item]=[]
+            self.itemsInMarket[item].append([sellerID,count])
+        print (self.itemsInMarket[item])
+    
+    def replenishStock(self):
+        self.chooseItemToSell()
+        self.leaderProxy.addItemsFromSeller(self.peerID,{self.item: self.noItems})
+    
+    def commissionForItem(self,item,commission):
+        print("asdasd")
+        self.money += commission
+        self.noItems -= 1
+        print("Earnings: {0}, Stock: {1} {2}".format(self.money), self.item, self.noItems)
+        if(self.noItems == 0):
+            threading.Thread(target = self.replenishStock).start()
+
+    def cmp_to_key(self, mycmp):
+        class K(object):
+            def __init__(self, obj, *args):
+                self.obj = obj
+            def __lt__(self, other):
+                return mycmp(self.obj, other.obj) < 0
+            def __gt__(self, other):
+                return mycmp(self.obj, other.obj) > 0
+            def __eq__(self, other):
+                return mycmp(self.obj, other.obj) == 0
+            def __le__(self, other):
+                return mycmp(self.obj, other.obj) <= 0
+            def __ge__(self, other):
+                return mycmp(self.obj, other.obj) >= 0
+            def __ne__(self, other):
+                return mycmp(self.obj, other.obj) != 0
+        return K
+    
+    def processList(self):
+        requestsList = sorted(self.requestsList, key=self.cmp_to_key(lambda x,y: x.compare(y)))
+        self.requestsList.clear()
+        for request in requestsList:
+            self.buy(self, request[2], request[1], request[0], request[3])
+    
+    def processBuyRequest(self, item, peerID, timeStamp, requestID):
+      
+        print ("Items in market are")
+        print (self.itemsInMarket)
+        print (item)        
+        
+        buyerURI = self.nameServer.lookup(peerID)
+        buyerURI = Pyro4.Proxy(buyerURI)
+        isSold = False
+            #try:
+        
+        sell_lock.acquire()
+        
+        if(item in self.itemsInMarket):
+            print(self.itemsInMarket[item])
+            seller = random.choice(self.itemsInMarket[item])
+            print(seller[0], seller[1])
+            URI = self.nameServer.lookup(seller[0])
+            seller = Pyro4.Proxy(URI)
+            print(seller)
+            print("Commission being sent!")            
+            print(seller, item)
+            seller.commissionForItem(item,10)
+            print("Commission sent!")
+            self.money += 5
+            print("Commission Earned: {0}".format(self.money))
+            isSold = True
+        #except:
+        #    print("Exiting buy")
+        #finally:
+        sell_lock.release()
+        self.clock.addTime(int(self.peerID.replace("gaul.market.", "")))
+        threading.Thread(target = self.multicastClock).start()
+        buyerURI.sell(isSold, item, timeStamp, requestID)
+        
+    
+    def buy(self, item, peerID, timeStamp, requestID):
+        print("Buy request from {0} for {1} with time {2}".format(peerID, item, timeStamp))
+        if(self.isLeader == False):
+            print("Illegal buy recieved from {0}".format(peerID))
+            return
+        if(self.resigning == True):
+            print("I resigned. Request from {0}".format(peerID))
+            return
+
+        isError = self.clock.isError(int(peerID.replace("gaul.market.", "")), timeStamp)
+        isError = False
+        if(isError == True):
+            print("Time out of order {0}".format(timeStamp))
+            self.requestList.append([timeStamp, peerID, item, requestID])
+        else:
+            self.clock.update(timeStamp)
+            self.processBuyRequest(item, peerID, timeStamp, requestID)
+            self.processList()
+
+    def sell(self, isSold, item, timestamp):
+        self.clock.update(timestamp)
+        print("{0} timestamped at {1}: {2}".format(item, timestamp, isSold))
+        print("Time: {0}".format(timeit.default_timer() - self.boughtItemsTime[self.requestID]))
+        del self.boughtItemsTime[self.requestID]
+        
+    def updateTimeStamp(self, peerID, timestamp):
+        peerID = int(peerID.replace("gaul.market.",""))
+        isError = self.clock.isError(peerID, timestamp)
+        if(isError == True):
+            print("Error in timestamp from {0}! {1} {2}".format(peerID, timestamp, self.clock.clock))
+            print("{0}: {1}".format(int(self.peerID.replace("gaul.market.","")), timestamp))
+            print("{0}: {1}".format(peerID, self.clock.clock))
+        self.clock.update(timestamp)
+
+    def multicastClock(self):
+        for pID, pURI in self.nameServer.list(prefix="gaul.market.").items():
+            if(pID != self.leaderID and pID != self.peerID):
+                pURIhandle = Pyro4.Proxy(pURI)
+                pURIhandle.updateTimeStamp(self.peerID, self.clock.clock)
+    
+    def buyAnotherItem(self):
+        if(self.isLeader is True):
+            return
+            
+        item = self.chooseItemToBuy()
+        print ("Planning to buy",item)
+        self.requestID = (self.requestID + 1) % 2000
+        self.boughtItemsTime[self.requestID] = timeit.default_timer()
+        
+        if(self.leaderProxy != None):
+            self.clock.addTime(int(self.peerID.replace("gaul.market.", "")))
+            threading.Thread(target = self.multicastClock).start()
+            self.leaderProxy.buy(item, self.peerID, self.clock.clock, self.requestID)
+        else:
+            print("Leader not elected yet")
+            
+
+'''
+
+    def addNeighbour(self, pID, pURI):
+        print("Neighbours is being added with node id = ",pID)
+        self.neighbours[pID]  = Pyro4.Proxy(pURI)
+
+#It is used to create connections between the peers in a randomized fashion
     def create_graph(self):
         
         i=1
@@ -148,11 +384,11 @@ class Peer:
                 peer.addNeighbour("gaul.market."+str(neigh_id), URI[neigh_id])
 
         print ("Added all the neighbours of the nodes in respective adjacency lists and everyone is ready to communicate")
+        
     
     def check_parent(self):
         return (self.parent==-1)
     
-    '''
     def startElection(self):
         print("Starting Election")
         self.isLeaderElected = False
@@ -225,228 +461,4 @@ class Peer:
                     if(pID == self.parent):
                         threading.Thread(target = pURI.election_reply, args=[self.max, self.peerID]).start()
             
-    '''
-    def startElection(self):
-        print("Starting Election")
-        self.isLeaderElected = False
-        self.isLeader = False
-        self.got_ok = 0
-        for pID,pURI in self.neighbours.items():
-            id = int(pID.replace("gaul.market.",""))
-            myid = int(self.peerID.replace("gaul.market.",""))
-            if(id>myid):
-                print("Calling lookup", pID)
-                threading.Thread(target = pURI.election_lookup, args=[self.peerID]).start()
-        time.sleep(1)
-        if(not(self.got_ok==1)):
-            self.broadcastElectionResult(self.peerID, self.peerID) #I am the leader
-
-    def ok(self):
-        if(self.isLeaderElected==True):
-            return
-        self.got_ok=1
-
-    def election_lookup( self, requestingPeerID):
-        #reply OK
-        print("Lookup called ", requestingPeerID,self.got_ok)
-        self.isLeaderElected=False
-        if(self.resigning):
-            #myid = "gaul.market.0"
-            #self.neighbours[requestingPeerID].election_reply(myid, self.peerID)
-            return
-        
-        self.neighbours[requestingPeerID].ok()
-        for pID,pURI in self.neighbours.items():
-            id = int(pID.replace("gaul.market.",""))
-            myid = int(self.peerID.replace("gaul.market.",""))
-            if(id>myid):
-                print("Calling lookup", pID)
-                threading.Thread(target = pURI.election_lookup, args=[self.peerID]).start()
-        time.sleep(1)
-        print(self.got_ok)
-        if(not(self.got_ok==1)):
-            self.broadcastElectionResult(self.peerID, self.peerID)
-    
-
-    def broadcastElectionResult(self, requestID, leaderID):
-        
-        if(self.isLeaderElected == True):
-            return
-        
-        self.leaderID = leaderID
-        self.isLeaderElected = True
-        self.requestMap.clear()
-        self.got_ok=0
-        
-        print("Our new Leader is...", leaderID)
-        if(leaderID == self.peerID):
-            self.isLeader = True
-            print("I am assigned as leader")
-        else:
-            self.isLeader = False
-            self.leaderURI = self.nameServer
-            self.leaderURI = self.nameServer.lookup(leaderID)
-            leaderProxy = Pyro4.Proxy(self.leaderURI)
-            leaderProxy.addItemsFromSeller(self.peerID,{self.item:self.noItems})
-
-
-        for pID,pURI in self.neighbours.items():
-            if(pID != requestID):
-                threading.Thread(target = pURI.broadcastElectionResult, args=[self.peerID, leaderID]).start()
-
-    def resign_leader(self):
-        if(self.isLeader):
-            print("I would like to resign")
-            #update resigning
-            self.resigning = True
-            for pID,pURI in self.neighbours.items():
-                print("Starting election called of ",pID)
-                pURI.startElection()
-                break
-                #Stop buying anything I am resigning
-                #In case he is resigning then dont take part in leader election
-                # add a clause that
-                #if resiginig then dont forward the request and dont reply anything...
-
-#update the max node id
-#if all replies heard great and reply to parent else exit
-
-    def addNeighbour(self, pID, pURI):
-        print("Neighbours is being added with node id = ",pID)
-        self.neighbours[pID]  = Pyro4.Proxy(pURI)
-            
-    """Pick randomly from self.items and reset noItems"""
-    def chooseItem(self):
-        itemIndex = 0#int(random.random() * len(self.itemList))
-        if(itemIndex == len(self.itemList)):
-            itemIndex = len(self.itemList) - 1
-        
-        self.item = self.itemList[itemIndex]
-        self.noItems = self.maxItems
-    
-    def registerItems(self, myIP, myPort):
-        daemon=Pyro4.Daemon(port = myPort, host=myIP)
-        self.pURI = daemon.register(self)
-        self.nameServer.register(self.peerID, self.pURI)
-        print("Registered " + self.peerID + "on nameserver with URI:" + str(self.pURI))
-        return daemon
-
-    def addItemsFromSeller(self,sellerID,itemsdict):
-        #TODO: Lock required
-        print (itemsdict)
-        for item,count in itemsdict.items():
-            if(item not in self.itemsInMarket):
-                self.itemsInMarket[item]=[]
-            self.itemsInMarket[item].append([sellerID,count])
-        print (self.itemsInMarket[item])
-    
-    def replenishStock(self):
-        self.chooseItem()
-        leaderURI = self.nameServer.lookup(self.leaderID)
-        leaderURI = Pyro4.Proxy(leaderURI)
-
-        leaderURI.addItemsFromSeller(self.peerID,{self.item: self.noItems})
-    
-    def commissionForItem(self,item,commission):
-        print("commision given to me")
-        self.money += commission
-        self.noItems -= 1
-        if(self.noItems == 0):
-            threading.Thread(target = self.replenishStock).start()
-
-    def cmp_to_key(self, mycmp):
-        class K(object):
-            def __init__(self, obj, *args):
-                self.obj = obj
-            def __lt__(self, other):
-                return mycmp(self.obj, other.obj) < 0
-            def __gt__(self, other):
-                return mycmp(self.obj, other.obj) > 0
-            def __eq__(self, other):
-                return mycmp(self.obj, other.obj) == 0
-            def __le__(self, other):
-                return mycmp(self.obj, other.obj) <= 0
-            def __ge__(self, other):
-                return mycmp(self.obj, other.obj) >= 0
-            def __ne__(self, other):
-                return mycmp(self.obj, other.obj) != 0
-        return K
-    
-    def processList(self):
-        requestsList = sorted(self.requestsList, key=self.cmp_to_key(lambda x,y: x.compare(y)))
-        self.requestsList.clear()
-        for request in requestsList:
-            self.buy(self, request[2], request[1], request[0])
-    
-    def processBuyRequest(self, item, peerID, timeStamp):
-      
-        buyerURI = self.nameServer.lookup(peerID)
-        buyerURI = Pyro4.Proxy(buyerURI)
-        isSold = False
-            #try:
-        sell_lock.acquire()
-        print ("Itemrs in market are")
-        print (self.itemsInMarket)
-        print (item)
-        if(item in self.itemsInMarket):
-            seller = "gaul.market.1"#random.choice(self.itemsInMarket[item])
-            URI = self.nameServer.lookup(seller)
-            seller = Pyro4.Proxy(URI)
-            seller.commissionForItem(item,10)
-            isSold = True
-        #except:
-        #    print("Exiting buy")
-        #finally:
-        sell_lock.release()
-        self.clock.addTime(int(self.peerID.replace("gaul.market.", "")))
-        threading.Thread(target = self.multicastClock).start()
-        buyerURI.sell(isSold, item, timeStamp)
-        
-    
-    def buy(self, item, peerID, timeStamp):
-        if(self.isLeader == False):
-            print("Illegal buy recieved from {0}".format(peerID))
-            return
-        isError = self.clock.isError(int(peerID.replace("gaul.market.", "")), timeStamp)
-        if(isError == True):
-            self.requestList.append([timeStamp, peerID, item])
-        else:
-            self.clock.update(timeStamp)
-            self.processBuyRequest(item, peerID, timeStamp)
-            self.processList()
-
-    def sell(self, isSold, item, timestamp):
-        self.clock.update(timestamp)
-        print("{0} timestamped at {1}: {2}".format(item, timestamp, isSold))
-    
-    def updateTimeStamp(self, peerID, timestamp):
-        peerID = int(peerID.replace("gaul.market.",""))
-        isError = self.clock.isError(peerID, timestamp)
-        if(isError == True):
-            print("Error in timestamp from {0}! {1} {2}".format(peerID, timestamp, self.clock.clock))
-            print("{0}: {1}".format(int(self.peerID.replace("gaul.market.","")), timestamp))
-            print("{0}: {1}".format(peerID, self.clock.clock))
-        self.clock.update(timestamp)
-
-    def multicastClock(self):
-        for pID, pURI in self.nameServer.list(prefix="gaul.market.").items():
-            if(pID != self.leaderID and pID != self.peerID):
-                pURIhandle = Pyro4.Proxy(pURI)
-                pURIhandle.updateTimeStamp(self.peerID, self.clock.clock)
-    
-    def buyAnotherItem(self):
-        self.chooseItem()
-        print ("Planning to buy",self.item)
-        self.requestID += 1
-        self.boughtItemsTime[self.requestID] = timeit.default_timer()
-        
-        if(self.leaderURI != None):
-            self.clock.addTime(int(self.peerID.replace("gaul.market.", "")))
-            threading.Thread(target = self.multicastClock).start()
-            for pID, pURI in self.nameServer.list(prefix="gaul.market.").items():
-                if(pID == self.leaderID):
-                    pURIhandle = Pyro4.Proxy(pURI)
-                    pURIhandle.buy(self.item, self.peerID, self.clock.clock)
-        else:
-            print("Leader not elected yet")
-            
+    '''        
