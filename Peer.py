@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import time
 import Pyro4
 import random
 import threading
@@ -68,7 +69,7 @@ class Peer:
         self.isLeader = False
         self.itemsInMarket = {}
         self.requestsList = []
-        
+        self.got_ok = False
         #For synchronization        
         self.clock = VectorClock.VectorClock(self.maxID)
         
@@ -151,7 +152,7 @@ class Peer:
     def check_parent(self):
         return (self.parent==-1)
     
-    
+    '''
     def startElection(self):
         print("Starting Election")
         self.isLeaderElected = False
@@ -224,6 +225,48 @@ class Peer:
                     if(pID == self.parent):
                         threading.Thread(target = pURI.election_reply, args=[self.max, self.peerID]).start()
             
+    '''
+    def startElection(self):
+        print("Starting Election")
+        self.isLeaderElected = False
+        self.isLeader = False
+        self.got_ok = 0
+        for pID,pURI in self.neighbours.items():
+            id = int(pID.replace("gaul.market.",""))
+            myid = int(self.peerID.replace("gaul.market.",""))
+            if(id>myid):
+                print("Calling lookup", pID)
+                threading.Thread(target = pURI.election_lookup, args=[self.peerID]).start()
+        time.sleep(1)
+        if(not(self.got_ok==1)):
+            self.broadcastElectionResult(self.peerID, self.peerID) #I am the leader
+
+    def ok(self):
+        if(self.isLeaderElected==True):
+            return
+        self.got_ok=1
+
+    def election_lookup( self, requestingPeerID):
+        #reply OK
+        print("Lookup called ", requestingPeerID,self.got_ok)
+        self.isLeaderElected=False
+        if(self.resigning):
+            #myid = "gaul.market.0"
+            #self.neighbours[requestingPeerID].election_reply(myid, self.peerID)
+            return
+        
+        self.neighbours[requestingPeerID].ok()
+        for pID,pURI in self.neighbours.items():
+            id = int(pID.replace("gaul.market.",""))
+            myid = int(self.peerID.replace("gaul.market.",""))
+            if(id>myid):
+                print("Calling lookup", pID)
+                threading.Thread(target = pURI.election_lookup, args=[self.peerID]).start()
+        time.sleep(1)
+        print(self.got_ok)
+        if(not(self.got_ok==1)):
+            self.broadcastElectionResult(self.peerID, self.peerID)
+    
 
     def broadcastElectionResult(self, requestID, leaderID):
         
@@ -232,8 +275,9 @@ class Peer:
         
         self.leaderID = leaderID
         self.isLeaderElected = True
-        self.parent = -1
         self.requestMap.clear()
+        self.got_ok=0
+        
         print("Our new Leader is...", leaderID)
         if(leaderID == self.peerID):
             self.isLeader = True
