@@ -7,8 +7,6 @@ import threading
 import timeit
 import VectorClock
 import copy
-import pickle
-import os.path
 
 buy_lock = threading.Lock()#Lock used by buyer when it establishes a connection with the seller to buy the product
 sell_lock = threading.Lock()#Lock used by seller to decrement he count of object when it is sold
@@ -17,8 +15,6 @@ election_lock  =  threading.Lock()
 
 class Peer:
     def __init__(self, peerType, peerID, maxID, num_neighbours, itemList, noItems, myIP, myPort):
-        
-        self.traderFilePath = "TraderAccount.pkl"
         
         #Name server helps it connect to peers through names
         self.nameServer = Pyro4.locateNS()
@@ -123,33 +119,17 @@ class Peer:
             self.leaderProxy = self.nameServer.lookup(leaderID)
             self.isLeader = False
             self.leaderProxy = Pyro4.Proxy(self.leaderProxy)
-            #self.leaderProxy.addItemsFromSeller(self.peerID,{self.itemToSell:self.noItems})
+            self.leaderProxy.addItemsFromSeller(self.peerID,{self.itemToSell:self.noItems})
         else:
             self.isLeader = True
             print("I am assigned as leader")
             for pID,pURI in self.neighbours.items():
                 threading.Thread(target = pURI.broadcastElectionResult, args=[self.peerID]).start()
-            if(os.path.isfile(self.traderFilePath)):
-                traderFile = open(self.traderFilePath, 'rb')
-                [self.itemList, self.money] = pickle.load(traderFile)
-                traderFile.close()
-                print(self.itemsInMarket)
-            else:
-                for pID,pURI in self.neighbours.items():
-                    [item, count] = pURI.getItemsToSell()
-                    if(item not in self.itemsInMarket):
-                        self.itemsInMarket[item]=[]
-                    self.itemsInMarket[item].append([pID, count])
-                    print(self.itemsInMarket)
-            
+
+        
     def resign_leader(self):
         if(self.isLeader):
             print("I would like to resign")
-            #Updating file
-            traderFile = open(self.traderFilePath, "wb")
-            pickle.dump([self.itemsInMarket, self.money], traderFile)
-            traderFile.close()
-            
             #update resigning
             self.resigning = True
             for pID,pURI in self.neighbours.items():
@@ -186,10 +166,6 @@ class Peer:
         print("Registered " + self.peerID + "on nameserver with URI:" + str(self.pURI))
         return daemon
 
-    def getItemsToSell(self):
-        print([self.itemToSell, self.noItems])
-        return [self.itemToSell, self.noItems]
-        
     def addItemsFromSeller(self,sellerID,itemsdict):
         #TODO: Lock required
         print("Registering items from {0}".format(sellerID))
@@ -247,7 +223,9 @@ class Peer:
         buyerURI = Pyro4.Proxy(buyerURI)
         isSold = False
             #try:
+        print("Acquiring...")
         sell_lock.acquire()
+        print("Acquired!")
         if(item in self.itemsInMarket):
             print(self.itemsInMarket[item])
             seller = random.choice(self.itemsInMarket[item])
@@ -263,6 +241,7 @@ class Peer:
         #    print("Exiting buy")
         #finally:
         sell_lock.release()
+        print("Released")
         self.clock.addTime(int(self.peerID.replace("gaul.market.", "")))
         threading.Thread(target = self.multicastClock).start()
         buyerURI.sell(isSold, item, timeStamp, requestID)
@@ -314,8 +293,8 @@ class Peer:
         self.requestID = (self.requestID + 1) % 2000
         
         if(self.isLeader is True):
-            if(self.requestID == 10 and self.peerID == "gaul.market.4"):
-                self.resign_leader()
+#            if(self.requestID == 10 and self.peerID == "gaul.market.4"):
+#                self.resign_leader()
             return
         
         item = self.chooseItemToBuy()
@@ -324,11 +303,19 @@ class Peer:
         
         if(self.leaderProxy != None):
             self.clock.addTime(int(self.peerID.replace("gaul.market.", "")))
-            threading.Thread(target = self.multicastClock).start()
-            self.leaderProxy.buy(item, self.peerID, self.clock.clock, self.requestID)
+            if(self.peerID == "gaul.market.1"):
+                localClock = copy.deepcopy(self.clock.clock)
+                threading.Thread(target = self.multicastClock).start()
+                time.sleep(3)
+                print ("Buying {0} with request id {1} now, {2}".format(item, self.requestID, localClock))
+                self.leaderProxy.buy(item, self.peerID, localClock, self.requestID)
+            else:
+                threading.Thread(target = self.multicastClock).start()
+                self.leaderProxy.buy(item, self.peerID, self.clock.clock, self.requestID)
         else:
             print("Leader not elected yet")
-         
+            
+
 '''
 
     def addNeighbour(self, pID, pURI):

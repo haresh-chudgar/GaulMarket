@@ -34,13 +34,14 @@ class VectorClock:
                 self.clock[i] = time[i]
                 
     def isError(self, p, time):
-        if(self.clock[p] - time[p] != 1):
-            return False
-            
+        if(time[p] - self.clock[p] != 1):
+            return True
+        #TODO:
         for i in range(self.N):
-            if(i != p and self.clock[i] != time[i]):
-                return False
-        return True
+            if(i != p and self.clock[i] < time[i]):
+                print("Returning true", time, self.clock, i, p)
+                return True
+        return False
             
     def diff(self, time):
         retVal = 0
