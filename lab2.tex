@@ -1,0 +1,244 @@
+
+ \documentclass[12pt]{article}
+\usepackage{algorithm}
+\usepackage{fullpage}
+\usepackage{amsmath}
+\usepackage{algorithmic}
+\usepackage{amsthm}
+\usepackage{cite}
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{amssymb}
+\usepackage{color}
+\usepackage{url}
+\usepackage[T1,OT1]{fontenc}
+%\usepackage{subfigure}
+%\usepackage[noend]{algpseudocode}
+\usepackage[section]{placeins}
+
+\usepackage{relsize}
+\usepackage{tikz}
+\usepackage{subfig}
+\usepackage{lmodern}
+\usepackage{afterpage}% http://ctan.org/pkg/afterpage
+\usetikzlibrary{arrows}
+\usepackage{colortbl}
+\tikzstyle{block}=[draw opacity=0.7,line width=1.4cm]
+
+% The main document
+\usetikzlibrary{positioning}
+\usetikzlibrary{arrows, decorations.pathmorphing}
+\usepackage{balance}
+\DeclareCaptionType{copyrightbox}
+
+\def\infinity{\rotatebox{90}{8}}
+
+%\tikzset{snake it/.style={decorate, decoration=snake}}
+\tikzset{snake arrow/.style=
+{-triangle 45,
+line width=1.4pt,
+decorate,
+decoration={snake,amplitude=1mm,segment length=10mm,post length=2mm}},
+}
+\newcommand{\comment}[1]{}
+\newcommand\tabFont{\fontsize{7}{7}\selectfont}
+%\newcommand\tikzFont{\fontsize{12}{12}\selectfont}
+\newcommand{\tabac}{\vspace*{-1mm}}
+\newcommand{\tabbc}{\vspace*{-2mm}}
+\newcommand{\tabcc}{\vspace*{-3mm}}
+\newtheorem{problem}{Problem}
+%\newdef{definition}{Definition}
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+%\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}{Lemma}
+\newtheorem{corollary}{Corollary}
+\newtheorem{conclusion}{Conclusion}
+\newtheorem{observation}{Observation}
+\newtheorem{example}{Example}
+
+\newlength{\oldtextfloatsep}\setlength{\oldtextfloatsep}{\textfloatsep}
+\newlength{\oldfloatsep}\setlength{\oldfloatsep}{\floatsep}
+
+\newcommand{\moveup}{\vspace*{-2mm}}
+\newcommand{\moveups}{\vspace*{-1mm}}
+
+\renewcommand{\algorithmicrequire}{\textbf{Input:}}
+\renewcommand{\algorithmicensure}{\textbf{Output:}}
+\graphicspath{{./images/}}
+
+\newcommand{\tabcaption}[1]{\vspace*{-3mm}\caption{#1}\vspace*{-5mm}}
+\newcommand{\figcaption}[1]{\vspace*{-3mm}\caption{#1}\vspace*{-5mm}}
+
+\newcommand{\thatsymbol}{\fontencoding{T1}\selectfont \TH}
+\newcommand{\expectation}{\mathbb{E}}
+\newcommand{\flow}{\Gamma}
+\newcommand{\diameter}{\mathcal{D}}
+\newcommand{\pathset}{\mathbb{P}}
+\newcommand{\Out}{\textbf{Out}}
+	\newcommand{\In}{\textbf{In}}
+\newcommand{{\kempegreedy}}{G{\scriptsize{REEDY}}}
+\newcommand{{\ourgreedy}}{ScoreG{\scriptsize{REEDY}}}
+
+%%%%%%% Use this iff you are desperate %%%%%%%%%%%%%%%%%%
+%\renewcommand\baselinestretch{2.0}
+%\comment{
+\renewcommand\baselinestretch{0.98}
+\addtolength\textwidth{0.16cm}
+\addtolength\textheight{0.3cm}
+%\renewcommand{\dbltopfraction}{0.99}
+\renewcommand{\dblfloatpagefraction}{0.9}
+\renewcommand{\floatpagefraction}{0.9}
+\usepackage{times}
+%}
+\newcommand*\xor{\mathbin{\oplus}}
+
+\newcommand*\samethanks[1][\value{footnote}]{\footnotemark[#1]}
+\DeclareMathOperator*{\argmax}{arg\,max}
+
+\title{\textbf{Distributed Operating Systems \\ Asterix and the Bazaar}}
+\author{Sainyam Galhotra \& Haresh Chudgar }
+
+\usepackage{graphicx}
+\begin{document}
+\maketitle
+\section{Design}
+We use an unstructured Peer 2 Peer network and RPCs to implement the system. The following subsections present in detail about the various aspects of the system.
+
+\subsection{Pyro}
+We use  Python Remote Object (PyRO) library to facilitate communication between peers. PyRO’s clean set of functions, tutorials and good documentation led us to choosing it over other libraries.  Using PyRO, one of the machines is set up as a nameserver. Whenever a peer starts, it registers itself to the nameserver; this enables querying the peer’s URI just by name and linking to it.
+
+\subsection{Peer} We are maintaining a stateful peer which keeps track of incoming requests and routes replies accordingly. Each peer maintains a dictionary with (request ID, origin peer) as key, and (destination Peer) as value. The origin peer is the ID of the peer which started the request (the buyer), whereas destination peer is the ID of the peer which forwarded the request. Each peer maintains a request ID, which is incremented for every new request. Therefore, the tuple (request ID, origin peer) is unique for every request to buy an object in our network.
+
+
+\subsection{Leader Election}
+We have implemented the bully algorithm of leader election which floods the network with lookup and ok messages. We also implemented the ring algorithm over the overlay network as we earlier  felt that we need to use the overlay network for leader election. In case of bully algorithm the node with highest id becomes the leader. Every peer waits for an ok message. If it receives an ok message then it cannot be a leader.
+In case a node resigns, it messages to one of the neighbor which starts the election all over again.
+
+\subsection{Message Passing:}
+We implemented the protocols as per the specifications where each buyer floods the network with a request, and reply is sent using the route through which it reached the seller. 
+
+\section{How it works?}
+\subsection{Start}The network is started by deploying peers individually. Each peer on start registers itself on the nameserver. The last peer on the network assigns neighbours to each peer as per section 1.3. Now the peers can talk to each other through the network.
+
+\subsection{Buying}
+As mentioned earlier, to search for a seller of a particular product, the peer sends a lookup message to its neighbours, each neighbour forwards to its neighbours and so on. The prototype of lookup function is: 	
+\begin{verbatim}
+def lookup (self,requestingPeerID, originID, requestID, item, hopCount):
+\end{verbatim}
+
+
+\begin{itemize}
+\item originID: The ID of the peer which originated the request.
+\item Request ID: ID of the request assigned by origin peer. The tuple (originID, request ID) will be unique in the network.
+\item requestingPeerID: The ID of the peer which forwarded the message.
+\item item: ID of the item to be bought
+\item hopCount: This is set to max hops by origin peer, and decremented by every successive peer. When it reaches 0, the request it no longer forwarded by a peer to its neighbours.
+\end{itemize}
+\subsection{Selling}
+Selling: If a seller receives a lookup request for an item it is selling, it responds with a reply message which is propagated along the request path by intermediate peers. The prototype of reply is as follows:
+\begin{verbatim}
+	def reply(self, sellerID, originID, requestID)
+\end{verbatim}
+Once the origin Peer recieves the reply message, it calls the buy procedure on the seller. The prototype of buy is:
+\begin{verbatim}
+def buy(self, item, peerID)
+\end{verbatim}
+This function returns true if the seller still has at least one item and false otherwise. This takes care of scenarios where the seller’s stock was emptied before the reply reached origin peer. A buyer maintains a queue of item requests; If the buy function returns true, the peer deletes the request from its request queue. If another seller responds, the buyer checks if the request has already been processed before responding to the seller.
+
+\subsection{Leader resignation}
+
+\section{Design Tradeoffs}
+In order to implement the P2P network, there were some tradeoffs which we have taken into account. Firstly we donot send the path traversed by the message along with it but store the parent pointer at each peer which helps us backtrack the path taken by particular request. This is helpful because it helps us keep the message small, which in turn reduces the network overhead. Also the backtracking becomes easier.
+
+With this design, the problem is that when a node calls lookup to pass information to the neighbors, it needs to ignore the ones which have already forwarded the information. The absence of path taken by the request in the message makes this step difficult. To handle this we maintain a request map at each node which tells that the particular request has been handled by the node and it has been forwarded. If the particular request is present is the request map of the neighbor then this request is not forwarded to that particular neighbor.
+
+We have implemented it using threads as the flow of information to different neighbors should not be sequential. With this said, it is possible that the buyer gets multiple responses from sellers but we want the item to be bought only once. To make this work, we have used locks to update the final buying step which is taken on establishing a direct connection with the seller. Similar is the case when a seller gets multiple buy requests and the decrement in number of items left should be synchronous. This is also maintained by the use of locks.
+
+\subsection{Output log of the peer}
+We have printed the log of the server in the file namely, serverLog\_Buyer.txt and  serverLog\_Seller.txt In case of buyer, it contains the information about the item being bought, lookup calls made and the reply which it receives. In case of seller the information is present about reply and the information that the item has been bought.
+
+\section{Code functions}
+We have implemented a bunch of functions othter than the lookup,buy and reply. The helper functions are the following : 
+
+\begin{itemize}
+\item  \_\_init\_\_ : Initialzes the object of the peer class. This assigns the IP adress, registers the object to name server and initializes the variables.
+
+\item create\_graph : Create a random graph betwee the nodes of the network
+\item addNeighbour : Adds the neighbor node in its adjacency list
+\item chooseItem : Chooses one item randomly from the possible items
+\item registerItems : Register the current instance of class in the nameserver and generate pURI
+\end{itemize}
+
+\section{Testing}
+In order to test the correctness of our code, we tested on various structures of the graph of the nodes so that we could test the flow of information between the peers. Some of the test were the following
+\begin{itemize}
+\item The first test considers the peers in a linear structure where we have a single seller. This helps us verify that the requests for the object which is not present at the seller get thrown and the requests for objects which is present at the seller are taken into account. Another aspect which we test is the hop count as when we keep hopcount low, only near by node is able to buy the product.
+\begin{figure}[ht!]
+\caption{A linear structured network}
+\includegraphics[scale=0.3]{f1.jpg}
+\end{figure}
+
+
+\item In the second test, we generate a tree where all the nodes are connected directly to the server. The thing which gets checked here is that the server is able to cater to all the buyers properly. This helps us verify the locking procedure and the fact that the server can cater multiple requests.
+\begin{figure}[ht!]
+\caption{A star structures network}
+\includegraphics[scale=0.3]{f2.jpg}
+\end{figure}
+
+\item The next test which we try is a structured P2P network formed of 6 nodes. This is tested with a bunch of variations in order to ensure that the message passing is working properly and same is the case with the reply procedure.
+\begin{figure}[ht!]
+\caption{A structured P2P network}
+\includegraphics[scale=0.3]{f3.jpg}
+\end{figure}
+
+\item On verifying the code on above mentioned cases, we tried it on random unstructured P2P networks which helps us to verify it on a varierty of structures generated.
+\begin{figure}[ht!]
+\caption{An  unstructured network}
+\includegraphics[scale=0.3]{f4.jpg}
+\end{figure}
+\end{itemize}
+
+Other than these tests, we tested each topology with varying ratio of buyers to sellers i.e. 5:1, 4:2 and 3:3 buyer to seller ratio. This helps us verify the locking mechanisms and the synchronous flow of the code.
+\section{Experimental evaluation}
+We analyzed the lag we receive in the response from the buyer in order to buy an item. For the exhaustive analysis, we ran the experiment with 6 peers where we tried three conbination of varying buyers and sellers. 
+
+\textbf{Note:} We ignore the time for requests which were not succesful i.e. the ones which were not fulfilled either due to unavaiability of item or due to the number of hops.
+
+The outcomes have been shown in the table below : 
+
+\begin{table}[ht!]
+\centering
+ \begin{tabular}{||c c c||} 
+ \hline
+ Number of Buyers & Number of sellers & Time lag(ms) \\ [0.5ex] 
+ \hline\hline
+ 5 & 1 & 8.7  \\ 
+ 4 & 2 & 7.8 \\
+ 3 & 3 &  7.2 \\ [1ex] 
+ \hline
+ \end{tabular}
+ \caption{Local machine with hopCount = 3}
+\end{table}
+
+In order to analyze the lag we get over WAN, we ran three instances on our own machine (in University Wifi) and three instances on edLab server. The resutls which we report are an average computation over 1000 buy requests. With this we observed that the lag over WAN was higher as compared to the lag over a local machine. The outcomes were the following : 
+
+\begin{table}[ht!]
+\centering
+ \begin{tabular}{||c c c||} 
+ \hline
+ Number of Buyers & Number of sellers & Time lag(Ms) \\ [0.5ex] 
+ \hline\hline
+ 5 & 1 & 86  \\ 
+ 4 & 2 & 78 \\
+ 3 & 3 & 66 \\ [1ex] 
+ \hline
+ \end{tabular}
+  \caption{WAN with hopCount = 3}
+\end{table}
+Another observation from the experiments was that there was not much difference in the lag within the fulfillment of buy requests on changing the hop count because the graph of nodes has a diameter of around 2-3, so every node is reachable in 3 hops from origin.
+
+
+
+
+\end{document}
