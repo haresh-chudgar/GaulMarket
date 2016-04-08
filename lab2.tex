@@ -61,7 +61,7 @@ decoration={snake,amplitude=1mm,segment length=10mm,post length=2mm}},
 \newlength{\oldfloatsep}\setlength{\oldfloatsep}{\floatsep}
 
 \newcommand{\moveup}{\vspace*{-2mm}}
-\newcommand{\moveups}{\vspace*{-1mm}}
+\newcommand{\moveups}{\vspace*{-1mm}}
 
 \renewcommand{\algorithmicrequire}{\textbf{Input:}}
 \renewcommand{\algorithmicensure}{\textbf{Output:}}
@@ -108,58 +108,78 @@ We use an unstructured Peer 2 Peer network and RPCs to implement the system. The
 \subsection{Pyro}
 We use  Python Remote Object (PyRO) library to facilitate communication between peers. PyRO’s clean set of functions, tutorials and good documentation led us to choosing it over other libraries.  Using PyRO, one of the machines is set up as a nameserver. Whenever a peer starts, it registers itself to the nameserver; this enables querying the peer’s URI just by name and linking to it.
 
-\subsection{Peer} We are maintaining a stateful peer which keeps track of incoming requests and routes replies accordingly. Each peer maintains a dictionary with (request ID, origin peer) as key, and (destination Peer) as value. The origin peer is the ID of the peer which started the request (the buyer), whereas destination peer is the ID of the peer which forwarded the request. Each peer maintains a request ID, which is incremented for every new request. Therefore, the tuple (request ID, origin peer) is unique for every request to buy an object in our network.
-
+\subsection{Peer} We are maintaining a stateful peer which knows about all the other node ids in the network. 
 
 \subsection{Leader Election}
 We have implemented the bully algorithm of leader election which floods the network with lookup and ok messages. We also implemented the ring algorithm over the overlay network as we earlier  felt that we need to use the overlay network for leader election. In case of bully algorithm the node with highest id becomes the leader. Every peer waits for an ok message. If it receives an ok message then it cannot be a leader.
-In case a node resigns, it messages to one of the neighbor which starts the election all over again.
+In case a node resigns, it messages to one of the neighbor which starts the election all over again. The resigned node acts dormant during the election. It then passes the stock  information  to the new leader. The old leader acts as normal buyer, seller peer after the new leader is elected.
 
 \subsection{Message Passing:}
-We implemented the protocols as per the specifications where each buyer floods the network with a request, and reply is sent using the route through which it reached the seller. 
+We implemented the protocols as per the specifications where each seller registers the items with the trader and  each buyer directly requests the trader for an item. The trader keeps the commission and gives the earnings to the seller on each buy.
+
+\subsection{Synchronization}
+We used vector clocks for clock synchronization and total ordering. The choice was mainly due to easy debugging and testing. Each peer increments its clock component and sends a clock update message to all its peers except the trader. The peer then immediately calls the trader's buy function with the updated clock. 
 
 \section{How it works?}
-\subsection{Start}The network is started by deploying peers individually. Each peer on start registers itself on the nameserver. The last peer on the network assigns neighbours to each peer as per section 1.3. Now the peers can talk to each other through the network.
+\subsection{Start}The network is started by deploying peers individually. Each peer on start registers itself on the nameserver. The last peer that joins the network starts leader election. Every peer is both a buyer and a seller until it becomes a trader.
 
 \subsection{Buying}
-As mentioned earlier, to search for a seller of a particular product, the peer sends a lookup message to its neighbours, each neighbour forwards to its neighbours and so on. The prototype of lookup function is: 	
-\begin{verbatim}
-def lookup (self,requestingPeerID, originID, requestID, item, hopCount):
-\end{verbatim}
+The buyer contacts the trader with the item and its vector clock. The trader checks its clock with the buyer's vector clock for any messages it has missed. There are two cases to be considered here:
+\begin{itemize}
+\item If there are no missed message, the trader immediately responds to the message by first incrementing its clock component, multi casting clock update message to all peers except the buyer, and then responding to the buyer. The clock update is handled in a thread to decrease delay in response time. The prototype for buy function is given below for reference.
+\item If the vector clock indicates a missed message, it queues the request. When the trader finally receives the delayed message, it processes it as per the above step, and processes the queue either till it is empty or till it encounters a message with vector clock value which is out of order. At this point it has to wait for the correct message to arrive before it can process the rest of the queue.
+\end{itemize}
 
+\begin{verbatim}
+def buy(self, item, peerID, timeStamp, requestID):
+\end{verbatim}
 
 \begin{itemize}
-\item originID: The ID of the peer which originated the request.
-\item Request ID: ID of the request assigned by origin peer. The tuple (originID, request ID) will be unique in the network.
-\item requestingPeerID: The ID of the peer which forwarded the message.
-\item item: ID of the item to be bought
-\item hopCount: This is set to max hops by origin peer, and decremented by every successive peer. When it reaches 0, the request it no longer forwarded by a peer to its neighbours.
+\item item: Item that the buyer wants to buy
+\item timestamp: Value of vector clock at buyer's end
+\item requestID: requestID for buyer's reference
 \end{itemize}
+
 \subsection{Selling}
-Selling: If a seller receives a lookup request for an item it is selling, it responds with a reply message which is propagated along the request path by intermediate peers. The prototype of reply is as follows:
+The trader maintains a dictionary with items as keys and list of (seller id, count) tuples as values, Upon requesting a buy request from a buyer, the trader looks up its item dictionary and randomly selects a seller from the list. The trader then increments its earnings, calls seller's function for its share of payment and finally calls buyer's sell function to confirm the sale.
+
 \begin{verbatim}
-	def reply(self, sellerID, originID, requestID)
+def commissionForItem(self,item,commission):
 \end{verbatim}
-Once the origin Peer recieves the reply message, it calls the buy procedure on the seller. The prototype of buy is:
+
+\begin{itemize}
+\item item: ID of the item that was sold
+\item commission: The seller's part of the sale.
+\end{itemize}
+
 \begin{verbatim}
-def buy(self, item, peerID)
+def sell(self, isSold, item, timestamp, requestID):
 \end{verbatim}
-This function returns true if the seller still has at least one item and false otherwise. This takes care of scenarios where the seller’s stock was emptied before the reply reached origin peer. A buyer maintains a queue of item requests; If the buy function returns true, the peer deletes the request from its request queue. If another seller responds, the buyer checks if the request has already been processed before responding to the seller.
+
+\begin{itemize}
+\item isSold: Boolean which specifies whether the item was sold or not
+\item item: The item which was sold
+\item timestamp: The value of vector clock when buy request was received 
+\item requestID: The request id which was sent along with the buy request.
+\end{itemize}
 
 \subsection{Leader resignation}
+When a leader resigns, a new election is started to choose a new leader. As soon as the new leader is elected, it needs to get the state of the market to resume trading. For this to work in harmony, we have implemented two different ways to capture the state of the market.
+
+\begin{itemize}
+\item File based: The trader maintains a file in a common location which is known to all peers. Whenever a trader resigns, the new leader reads the file and continues operation of the market.
+\item Distributed: Since the trader has to contact the seller for its commission, the seller is able to keep track of its inventory. The seller therefore has the complete state of its inventory. Whenever a trader is elected, the seller registers itself with the trader by sending the list of items in its inventory. So even if the old trader resigns, and a new trader is elected, the new trader will automatically receive updates from all sellers, and will be able to recreate the item inventory of the market.
+\end{itemize}
 
 \section{Design Tradeoffs}
-In order to implement the P2P network, there were some tradeoffs which we have taken into account. Firstly we donot send the path traversed by the message along with it but store the parent pointer at each peer which helps us backtrack the path taken by particular request. This is helpful because it helps us keep the message small, which in turn reduces the network overhead. Also the backtracking becomes easier.
+In order to implement the P2P network, there were some tradeoffs which we have taken into account. Firstly in leader election we have done bully algorithm. The clock synchronisation has been implemented using vector clocks along with multicast. Every peer multicasts to the whole network about their buy request. This helps us to maintain total order.
 
-With this design, the problem is that when a node calls lookup to pass information to the neighbors, it needs to ignore the ones which have already forwarded the information. The absence of path taken by the request in the message makes this step difficult. To handle this we maintain a request map at each node which tells that the particular request has been handled by the node and it has been forwarded. If the particular request is present is the request map of the neighbor then this request is not forwarded to that particular neighbor.
-
-We have implemented it using threads as the flow of information to different neighbors should not be sequential. With this said, it is possible that the buyer gets multiple responses from sellers but we want the item to be bought only once. To make this work, we have used locks to update the final buying step which is taken on establishing a direct connection with the seller. Similar is the case when a seller gets multiple buy requests and the decrement in number of items left should be synchronous. This is also maintained by the use of locks.
 
 \subsection{Output log of the peer}
 We have printed the log of the server in the file namely, serverLog\_Buyer.txt and  serverLog\_Seller.txt In case of buyer, it contains the information about the item being bought, lookup calls made and the reply which it receives. In case of seller the information is present about reply and the information that the item has been bought.
 
 \section{Code functions}
-We have implemented a bunch of functions othter than the lookup,buy and reply. The helper functions are the following : 
+We have implemented a bunch of functions other than the lookup,buy and sell. The helper functions are the following : 
 
 \begin{itemize}
 \item  \_\_init\_\_ : Initialzes the object of the peer class. This assigns the IP adress, registers the object to name server and initializes the variables.
@@ -171,35 +191,26 @@ We have implemented a bunch of functions othter than the lookup,buy and reply. T
 \end{itemize}
 
 \section{Testing}
-In order to test the correctness of our code, we tested on various structures of the graph of the nodes so that we could test the flow of information between the peers. Some of the test were the following
-\begin{itemize}
-\item The first test considers the peers in a linear structure where we have a single seller. This helps us verify that the requests for the object which is not present at the seller get thrown and the requests for objects which is present at the seller are taken into account. Another aspect which we test is the hop count as when we keep hopcount low, only near by node is able to buy the product.
-\begin{figure}[ht!]
-\caption{A linear structured network}
-\includegraphics[scale=0.3]{f1.jpg}
-\end{figure}
+In order to test the correctness of our code, we tested on various scenarios which we explain in detail below :
+\subsection{Leader election}
+We tested the leader election in case of variable number of nodes. We also tested it in the situations when there are multiple leader elections started by different nodes at the same time. This helps us to verify thr correctness of our leader election algorithm.
+\subsection{Resignation}
+In order to test the correctness of re starting a new leader election and passing over control to the new leader, we instrumented the code where a leader resigns after some time. This worked perfectly fine and helps us ensure that the leader election procedure is correct.
+
+\subsection{Clock synchronisation}
+In order to test the correctness of working of clocks, we tested the correct updation of the clocks of buyers and sellers. This helps us ensure the correctness of the implementation of vector clocks to maintain the ordering in which buy requests are generated.
 
 
-\item In the second test, we generate a tree where all the nodes are connected directly to the server. The thing which gets checked here is that the server is able to cater to all the buyers properly. This helps us verify the locking procedure and the fact that the server can cater multiple requests.
-\begin{figure}[ht!]
-\caption{A star structures network}
-\includegraphics[scale=0.3]{f2.jpg}
-\end{figure}
+\subsection{Clock + leader + resignation}
+In this test we test the correct working of our clocks even when new leaders get elected i.e. when some leader resigns and a new leader gets elected.
 
-\item The next test which we try is a structured P2P network formed of 6 nodes. This is tested with a bunch of variations in order to ensure that the message passing is working properly and same is the case with the reply procedure.
-\begin{figure}[ht!]
-\caption{A structured P2P network}
-\includegraphics[scale=0.3]{f3.jpg}
-\end{figure}
+\subsection{Clock + leader + resignation + larger delay to reorder}
+This is one of the msot important test cases as it tests the queue implementation which is used whenever an out of order message is received by the trader. 
 
-\item On verifying the code on above mentioned cases, we tried it on random unstructured P2P networks which helps us to verify it on a varierty of structures generated.
-\begin{figure}[ht!]
-\caption{An  unstructured network}
-\includegraphics[scale=0.3]{f4.jpg}
-\end{figure}
-\end{itemize}
+In this experiment we instrument the code to employ a larger delay on a particular link which helps us ensure that the messages received by the trader are out of order. In that case these messages get queued up and get processed later on in the order of their time stamps.
 
-Other than these tests, we tested each topology with varying ratio of buyers to sellers i.e. 5:1, 4:2 and 3:3 buyer to seller ratio. This helps us verify the locking mechanisms and the synchronous flow of the code.
+
+Testing our code on all these test cases helps us validate the correctness of our implementation.
 \section{Experimental evaluation}
 We analyzed the lag we receive in the response from the buyer in order to buy an item. For the exhaustive analysis, we ran the experiment with 6 peers where we tried three conbination of varying buyers and sellers. 
 
