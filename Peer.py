@@ -117,9 +117,10 @@ class Peer:
         
         self.isLeaderElected = True
         self.got_ok=0
+        self.clock.reset()
+        self.leaderID = leaderID
         if(self.peerID != leaderID):        
             print("Our new Leader is...", leaderID)
-            self.leaderID = leaderID
             self.leaderProxy = self.nameServer.lookup(leaderID)
             self.isLeader = False
             self.leaderProxy = Pyro4.Proxy(self.leaderProxy)
@@ -131,7 +132,10 @@ class Peer:
                 threading.Thread(target = pURI.broadcastElectionResult, args=[self.peerID]).start()
             if(os.path.isfile(self.traderFilePath)):
                 traderFile = open(self.traderFilePath, 'rb')
-                [self.itemList, self.money] = pickle.load(traderFile)
+                tempData = pickle.load(traderFile)
+                print(tempData)
+                self.itemsInMarket = tempData[0]
+                self.money = tempData[1]
                 traderFile.close()
                 print(self.itemsInMarket)
             else:

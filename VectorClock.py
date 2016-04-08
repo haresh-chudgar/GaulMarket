@@ -8,6 +8,10 @@ class VectorClock:
             self.clock.append(0)
         self.clock.append(0)
     
+    def reset(self):
+        for i in range(self.N):
+            self.clock[i] = 0
+            
     def compare(self, time):
         lesser = 0
         greater = 0

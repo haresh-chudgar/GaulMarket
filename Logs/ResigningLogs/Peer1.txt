@@ -1,0 +1,81 @@
+haresh@haresh-Inspiron-7520:~/Documents/projects/mygithub/GaulMarket$ python node.py 1 BUYER localhost 9051
+--------------------------------------------------------------------------------------------------------
+				Peer ID is  1  and Type is  BUYER
+--------------------------------------------------------------------------------------------------------
+			 The server IP is  localhost
+Registered gaul.market.1on nameserver with URI:PYRO:obj_2d19308d7a0a408a91a1f6052fa8a870@localhost:9051
+{'gaul.market.4': <Pyro4.core.Proxy at 0x7f92efd1e9b0, not connected, for PYRO:obj_c1d352a28edb4dc6b7b01a5e2e8d9055@localhost:9021>, 'gaul.market.2': <Pyro4.core.Proxy at 0x7f92efd1eac8, not connected, for PYRO:obj_f82a03a23416449e8eaa3b0c7821aad5@localhost:9052>, 'gaul.market.3': <Pyro4.core.Proxy at 0x7f92efd1eb70, not connected, for PYRO:obj_b36ec25c56d74f4f9f7320bb4aa6cf2f@localhost:9054>}
+Starting Election
+4 1
+Calling lookup gaul.market.4
+2 1
+Calling lookup gaul.market.2
+3 1
+Calling lookup gaul.market.3
+Our new Leader is... gaul.market.4
+Buyer is Ready, starting to buy
+Planning to buy  apple with request id 1
+ apple timestamped at [0, 1, 1, 1, 2]: True
+Time: 0.018520420000641025
+Planning to buy pen with request id 2
+asdasd
+Earnings: 10, Stock: pen 3
+pen timestamped at [0, 2, 2, 2, 5]: True
+Time: 0.015193463999821688
+Planning to buy pen with request id 3
+pen timestamped at [0, 3, 3, 3, 8]: True
+Time: 0.014381121000042185
+Planning to buy orange with request id 4
+orange timestamped at [0, 4, 4, 4, 11]: True
+Time: 0.01581631900080538
+Planning to buy pen with request id 5
+pen timestamped at [0, 5, 5, 5, 14]: True
+Time: 0.012477940999815473
+Starting Election
+4 1
+Calling lookup gaul.market.4
+2 1
+Calling lookup gaul.market.2
+3 1
+Calling lookup gaul.market.3
+Our new Leader is... gaul.market.3
+Planning to buy pen with request id 6
+pen timestamped at [0, 1, 1, 1, 0]: True
+Time: 0.017924192999998922
+Planning to buy pen with request id 7
+pen timestamped at [0, 2, 2, 4, 1]: True
+Time: 0.012811893999241875
+asdasd
+Earnings: 20, Stock: pen 2
+Planning to buy orange with request id 8
+orange timestamped at [0, 3, 3, 7, 2]: True
+Time: 0.013824896999722114
+Planning to buy  apple with request id 9
+ apple timestamped at [0, 4, 4, 10, 3]: True
+Time: 0.0131812709987571
+asdasd
+Earnings: 30, Stock: pen 1
+Planning to buy pen with request id 10
+pen timestamped at [0, 5, 5, 13, 4]: True
+Time: 0.016850276999321068
+Planning to buy pen with request id 11
+pen timestamped at [0, 6, 6, 16, 5]: True
+Time: 0.014854285000183154
+asdasd
+Earnings: 40, Stock: pen 0
+Planning to buy  apple with request id 12
+ apple timestamped at [0, 7, 7, 19, 6]: True
+Time: 0.016308967999066226
+Planning to buy pen with request id 13
+pen timestamped at [0, 8, 8, 22, 7]: True
+Time: 0.01308456200058572
+Planning to buy pen with request id 14
+pen timestamped at [0, 9, 9, 25, 8]: True
+Time: 0.014946428000257583
+Planning to buy pen with request id 15
+pen timestamped at [0, 10, 10, 28, 9]: True
+Time: 0.012588583000251674
+Planning to buy  apple with request id 16
+ apple timestamped at [0, 11, 11, 30, 9]: True
+Time: 0.01011157699940668
+

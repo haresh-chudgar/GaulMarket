@@ -1,0 +1,44 @@
+haresh@haresh-Inspiron-7520:~/Documents/projects/mygithub/GaulMarket$ python node.py 1 BUYER localhost 9021
+--------------------------------------------------------------------------------------------------------
+				Peer ID is  1  and Type is  BUYER
+--------------------------------------------------------------------------------------------------------
+			 The server IP is  localhost
+Registered gaul.market.1on nameserver with URI:PYRO:obj_4acf34f67687422796db40db6d0fa874@localhost:9021
+{'gaul.market.2': <Pyro4.core.Proxy at 0x7f56706af940, not connected, for PYRO:obj_8d1fe0737ed04ca2921a418338e34989@localhost:9022>, 'gaul.market.4': <Pyro4.core.Proxy at 0x7f56706afa58, not connected, for PYRO:obj_3087074be2ca4415a7a4cd0f809a5763@localhost:9024>, 'gaul.market.3': <Pyro4.core.Proxy at 0x7f56706afbe0, not connected, for PYRO:obj_f124e63447474d22b0d1eed605f0b5da@localhost:9023>}
+Starting Election
+2 1
+Calling lookup gaul.market.2
+4 1
+Calling lookup gaul.market.4
+3 1
+Calling lookup gaul.market.3
+Our new Leader is... gaul.market.4
+Our new Leader is... gaul.market.4
+Buyer is Ready, starting to buy
+Planning to buy orange with request id 1
+Buying orange with request id 1 now, [0, 1, 1, 1, 2]
+orange timestamped at [0, 1, 1, 1, 2]: True
+Time: 3.0153642509994825
+asdasd
+Earnings: 10, Stock:  apple 3
+Planning to buy  apple with request id 2
+Buying  apple with request id 2 now, [0, 2, 2, 2, 5]
+ apple timestamped at [0, 2, 2, 2, 5]: True
+Time: 3.015139590000217
+asdasd
+Earnings: 20, Stock:  apple 2
+Error in timestamp from 4! [0, 2, 3, 2, 7] [0, 2, 3, 2, 5]
+1: [0, 2, 3, 2, 7]
+4: [0, 2, 3, 2, 5]
+Error in timestamp from 4! [0, 2, 3, 2, 7] [0, 2, 3, 2, 7]
+1: [0, 2, 3, 2, 7]
+4: [0, 2, 3, 2, 7]
+Planning to buy  apple with request id 3
+Buying  apple with request id 3 now, [0, 3, 3, 3, 8]
+ apple timestamped at [0, 3, 3, 3, 8]: True
+Time: 3.01623177700003
+Planning to buy orange with request id 4
+Buying orange with request id 4 now, [0, 4, 4, 4, 11]
+orange timestamped at [0, 4, 4, 4, 11]: True
+Time: 3.016121251000186
+
