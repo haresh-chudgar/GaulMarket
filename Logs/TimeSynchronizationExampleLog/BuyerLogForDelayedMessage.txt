@@ -19,13 +19,13 @@ Planning to buy orange with request id 1
 Buying orange with request id 1 now, [0, 1, 1, 1, 2]
 orange timestamped at [0, 1, 1, 1, 2]: True
 Time: 3.0153642509994825
-asdasd
+
 Earnings: 10, Stock:  apple 3
 Planning to buy  apple with request id 2
 Buying  apple with request id 2 now, [0, 2, 2, 2, 5]
  apple timestamped at [0, 2, 2, 2, 5]: True
 Time: 3.015139590000217
-asdasd
+
 Earnings: 20, Stock:  apple 2
 Error in timestamp from 4! [0, 2, 3, 2, 7] [0, 2, 3, 2, 5]
 1: [0, 2, 3, 2, 7]

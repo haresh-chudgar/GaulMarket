@@ -61,7 +61,7 @@ decoration={snake,amplitude=1mm,segment length=10mm,post length=2mm}},
 \newlength{\oldfloatsep}\setlength{\oldfloatsep}{\floatsep}
 
 \newcommand{\moveup}{\vspace*{-2mm}}
-\newcommand{\moveups}{\vspace*{-1mm}}
+\newcommand{\moveups}{\vspace*{-1mm}}
 
 \renewcommand{\algorithmicrequire}{\textbf{Input:}}
 \renewcommand{\algorithmicensure}{\textbf{Output:}}
@@ -172,11 +172,13 @@ When a leader resigns, a new election is started to choose a new leader. As soon
 \end{itemize}
 
 \section{Design Tradeoffs}
-In order to implement the P2P network, there were some tradeoffs which we have taken into account. Firstly in leader election we have done bully algorithm. The clock synchronisation has been implemented using vector clocks along with multicast. Every peer multicasts to the whole network about their buy request. This helps us to maintain total order.
+In order to implement the P2P network, there were some tradeoffs which we have taken into account. Firstly in leader election we have done bully algorithm. The clock synchronisation has been implemented using vector clocks along with multicast. Every peer multicasts to the whole network about their buy request. This helps us to maintain total order. Another feature in our code is that the trader which resigns becomes a normal peer and starts buying and selling thereon. Its commission is maintained from the time it had started.
 
+We tried these two different approaches as both of them follow the same procedure and the second method is handy when there is no shared data space.
 
 \subsection{Output log of the peer}
-We have printed the log of the server in the file namely, serverLog\_Buyer.txt and  serverLog\_Seller.txt In case of buyer, it contains the information about the item being bought, lookup calls made and the reply which it receives. In case of seller the information is present about reply and the information that the item has been bought.
+We have printed the log of the server in the files present in two folders for two different test cases.  In case of buyer, it contains the information about the item being bought, lookup calls made and the reply which it receives. In case of seller the information is present about reply and the information that the item has been bought.
+
 
 \section{Code functions}
 We have implemented a bunch of functions other than the lookup,buy and sell. The helper functions are the following : 
@@ -184,10 +186,11 @@ We have implemented a bunch of functions other than the lookup,buy and sell. The
 \begin{itemize}
 \item  \_\_init\_\_ : Initialzes the object of the peer class. This assigns the IP adress, registers the object to name server and initializes the variables.
 
-\item create\_graph : Create a random graph betwee the nodes of the network
-\item addNeighbour : Adds the neighbor node in its adjacency list
-\item chooseItem : Chooses one item randomly from the possible items
-\item registerItems : Register the current instance of class in the nameserver and generate pURI
+\item startElection : Starts the election from the peer.
+\item election\_lookup : The set of lookups needed during the election process
+\item broadcastElectionResult : Broadcast the result of election and inform every peer to start buying/selling
+\item registerItems : Register the set of items to be sold to the trader
+\item Vectorclock.py : A library which implements the different functions for vector clock which have been called by Peer.py for synchronisation
 \end{itemize}
 
 \section{Testing}
@@ -212,9 +215,8 @@ In this experiment we instrument the code to employ a larger delay on a particul
 
 Testing our code on all these test cases helps us validate the correctness of our implementation.
 \section{Experimental evaluation}
-We analyzed the lag we receive in the response from the buyer in order to buy an item. For the exhaustive analysis, we ran the experiment with 6 peers where we tried three conbination of varying buyers and sellers. 
+We analyzed the lag we receive in the response from the buyer in order to buy an item. For the exhaustive analysis, we ran the experiment with 6 peers where we tried different variations where the trader was once on one machine and after resigning the new trader is on another machine.
 
-\textbf{Note:} We ignore the time for requests which were not succesful i.e. the ones which were not fulfilled either due to unavaiability of item or due to the number of hops.
 
 The outcomes have been shown in the table below : 
 
@@ -224,13 +226,14 @@ The outcomes have been shown in the table below :
  \hline
  Number of Buyers & Number of sellers & Time lag(ms) \\ [0.5ex] 
  \hline\hline
- 5 & 1 & 8.7  \\ 
- 4 & 2 & 7.8 \\
- 3 & 3 &  7.2 \\ [1ex] 
+ 5 & 1 & 12.33  \\ 
+ 4 & 2 & 12.2 \\
+ 3 & 3 &  12.24 \\ [1ex] 
  \hline
  \end{tabular}
- \caption{Local machine with hopCount = 3}
+ \caption{Local machine}
 \end{table}
+This table just shows that there is not much difference in time even if we change the proportion of buyers and sellers. The main reason is that the trading process takes place through a single trader. It can be seen that the lag is marginally higher in case of large number of buyers as the trader takes some time to process the requests.
 
 In order to analyze the lag we get over WAN, we ran three instances on our own machine (in University Wifi) and three instances on edLab server. The resutls which we report are an average computation over 1000 buy requests. With this we observed that the lag over WAN was higher as compared to the lag over a local machine. The outcomes were the following : 
 
@@ -240,16 +243,16 @@ In order to analyze the lag we get over WAN, we ran three instances on our own m
  \hline
  Number of Buyers & Number of sellers & Time lag(Ms) \\ [0.5ex] 
  \hline\hline
- 5 & 1 & 86  \\ 
- 4 & 2 & 78 \\
- 3 & 3 & 66 \\ [1ex] 
+ 5 & 1 & 146  \\ 
+ 4 & 2 & 143 \\
+ 3 & 3 & 147 \\ [1ex] 
  \hline
  \end{tabular}
-  \caption{WAN with hopCount = 3}
+  \caption{WAN }
 \end{table}
-Another observation from the experiments was that there was not much difference in the lag within the fulfillment of buy requests on changing the hop count because the graph of nodes has a diameter of around 2-3, so every node is reachable in 3 hops from origin.
+Another observation is that the time lag for the buyers which were on different machine was much higher as compared to the one on same machine. This is because of network delay and the message, vector clock being delivered over WAN.
 
 
-
+In case of re-election, all the buying/selling processes pause and it takes around 535 milli seconds for the new leader to get elected and then the new leader to come into action. Over WAN this delay is slightly higher ~1.45 sec as the current state is sent by resigning trader to the newly elected trader.
 
 \end{document}

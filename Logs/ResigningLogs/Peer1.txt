@@ -18,7 +18,7 @@ Planning to buy  apple with request id 1
  apple timestamped at [0, 1, 1, 1, 2]: True
 Time: 0.018520420000641025
 Planning to buy pen with request id 2
-asdasd
+
 Earnings: 10, Stock: pen 3
 pen timestamped at [0, 2, 2, 2, 5]: True
 Time: 0.015193463999821688
@@ -45,7 +45,7 @@ Time: 0.017924192999998922
 Planning to buy pen with request id 7
 pen timestamped at [0, 2, 2, 4, 1]: True
 Time: 0.012811893999241875
-asdasd
+
 Earnings: 20, Stock: pen 2
 Planning to buy orange with request id 8
 orange timestamped at [0, 3, 3, 7, 2]: True
@@ -53,7 +53,7 @@ Time: 0.013824896999722114
 Planning to buy  apple with request id 9
  apple timestamped at [0, 4, 4, 10, 3]: True
 Time: 0.0131812709987571
-asdasd
+
 Earnings: 30, Stock: pen 1
 Planning to buy pen with request id 10
 pen timestamped at [0, 5, 5, 13, 4]: True
@@ -61,7 +61,7 @@ Time: 0.016850276999321068
 Planning to buy pen with request id 11
 pen timestamped at [0, 6, 6, 16, 5]: True
 Time: 0.014854285000183154
-asdasd
+
 Earnings: 40, Stock: pen 0
 Planning to buy  apple with request id 12
  apple timestamped at [0, 7, 7, 19, 6]: True

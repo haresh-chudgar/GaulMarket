@@ -26,14 +26,14 @@ Planning to buy orange with request id 4
 orange timestamped at [0, 1, 2, 2, 4]: True
 Time: 0.013139917000444257
 Planning to buy  apple with request id 5
-asdasd
+
 Earnings: 10, Stock: pen 3
  apple timestamped at [0, 2, 3, 3, 7]: True
 Time: 0.013756823998846812
-asdasd
+
 Earnings: 20, Stock: pen 2
 Planning to buy pen with request id 6
-asdasd
+
 Earnings: 30, Stock: pen 1
 pen timestamped at [0, 3, 4, 4, 10]: True
 Time: 0.01733154399880732
@@ -56,7 +56,7 @@ My timestamp: [0, 0, 0, 0, 0]
 [['gaul.market.2', 4], ['gaul.market.1', 4], ['gaul.market.3', 4], ['gaul.market.3', 4], ['gaul.market.2', 4]]
 gaul.market.3 4
 <Pyro4.core.Proxy at 0x7fa2d41c45f8, not connected, for PYRO:obj_b36ec25c56d74f4f9f7320bb4aa6cf2f@localhost:9054> pen
-asdasd
+
 Earnings: 250, Stock: pen 0
 Commission Earned: 255
 Buy request from gaul.market.1 for pen with time [0, 1, 1, 1, 0]
@@ -118,7 +118,7 @@ My timestamp: [0, 3, 3, 9, 3]
 [['gaul.market.3', 4], ['gaul.market.2', 4], ['gaul.market.3', 4], ['gaul.market.2', 4]]
 gaul.market.3 4
 <Pyro4.core.Proxy at 0x7fa2d41c4278, not connected, for PYRO:obj_b36ec25c56d74f4f9f7320bb4aa6cf2f@localhost:9054>  apple
-asdasd
+
 Earnings: 305, Stock: orange 3
 Commission Earned: 310
 Buy request from gaul.market.1 for  apple with time [0, 4, 4, 10, 3]
@@ -138,7 +138,7 @@ My timestamp: [0, 4, 4, 12, 4]
 [['gaul.market.3', 4], ['gaul.market.2', 4], ['gaul.market.3', 4], ['gaul.market.2', 4]]
 gaul.market.3 4
 <Pyro4.core.Proxy at 0x7fa2d41c4940, not connected, for PYRO:obj_b36ec25c56d74f4f9f7320bb4aa6cf2f@localhost:9054>  apple
-asdasd
+
 Earnings: 330, Stock: orange 2
 Commission Earned: 335
 Buy request from gaul.market.1 for pen with time [0, 5, 5, 13, 4]
@@ -161,7 +161,7 @@ My timestamp: [0, 5, 5, 15, 5]
 [['gaul.market.2', 4], ['gaul.market.1', 4], ['gaul.market.3', 4], ['gaul.market.3', 4], ['gaul.market.2', 4], ['gaul.market.2', 4]]
 gaul.market.3 4
 <Pyro4.core.Proxy at 0x7fa2d41d1a20, not connected, for PYRO:obj_b36ec25c56d74f4f9f7320bb4aa6cf2f@localhost:9054> pen
-asdasd
+
 Earnings: 355, Stock: orange 1
 Commission Earned: 360
 Buy request from gaul.market.1 for pen with time [0, 6, 6, 16, 5]
@@ -199,7 +199,7 @@ My timestamp: [0, 7, 7, 20, 6]
 [['gaul.market.2', 4], ['gaul.market.1', 4], ['gaul.market.3', 4], ['gaul.market.3', 4], ['gaul.market.2', 4], ['gaul.market.2', 4], ['gaul.market.2', 4]]
 gaul.market.3 4
 <Pyro4.core.Proxy at 0x7fa2d41d1a58, not connected, for PYRO:obj_b36ec25c56d74f4f9f7320bb4aa6cf2f@localhost:9054> pen
-asdasd
+
 Earnings: 390, Stock: orange 0
 Commission Earned: 395
 Buy request from gaul.market.2 for orange with time [0, 7, 8, 21, 7]
@@ -219,7 +219,7 @@ My timestamp: [0, 8, 8, 23, 7]
 [['gaul.market.3', 4], ['gaul.market.2', 4], ['gaul.market.3', 4], ['gaul.market.2', 4]]
 gaul.market.3 4
 <Pyro4.core.Proxy at 0x7fa2d41dc748, not connected, for PYRO:obj_b36ec25c56d74f4f9f7320bb4aa6cf2f@localhost:9054>  apple
-asdasd
+
 Earnings: 415, Stock: orange 3
 Commission Earned: 420
 Buy request from gaul.market.2 for  apple with time [0, 8, 9, 24, 8]
@@ -242,7 +242,7 @@ My timestamp: [0, 9, 9, 26, 8]
 [['gaul.market.3', 4], ['gaul.market.2', 4], ['gaul.market.3', 4], ['gaul.market.2', 4], ['gaul.market.2', 4]]
 gaul.market.3 4
 <Pyro4.core.Proxy at 0x7fa2d41c49e8, not connected, for PYRO:obj_b36ec25c56d74f4f9f7320bb4aa6cf2f@localhost:9054>  apple
-asdasd
+
 Earnings: 440, Stock: orange 2
 Commission Earned: 445
 Buy request from gaul.market.2 for  apple with time [0, 9, 10, 27, 9]
@@ -250,7 +250,7 @@ My timestamp: [0, 9, 9, 27, 9]
 [['gaul.market.3', 4], ['gaul.market.2', 4], ['gaul.market.3', 4], ['gaul.market.2', 4], ['gaul.market.2', 4]]
 gaul.market.3 4
 <Pyro4.core.Proxy at 0x7fa2d48116d8, not connected, for PYRO:obj_b36ec25c56d74f4f9f7320bb4aa6cf2f@localhost:9054>  apple
-asdasd
+
 Earnings: 455, Stock: orange 1
 Commission Earned: 460
 Buy request from gaul.market.1 for pen with time [0, 10, 10, 28, 9]

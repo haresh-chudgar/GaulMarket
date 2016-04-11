@@ -301,10 +301,12 @@ class Peer:
     def updateTimeStamp(self, peerID, timestamp):
         peerID = int(peerID.replace("gaul.market.",""))
         isError = self.clock.isError(peerID, timestamp)
+        '''
         if(isError == True):
             print("Error in timestamp from {0}! {1} {2}".format(peerID, timestamp, self.clock.clock))
             print("{0}: {1}".format(int(self.peerID.replace("gaul.market.","")), timestamp))
             print("{0}: {1}".format(peerID, self.clock.clock))
+        '''
         self.clock.update(timestamp)
 
     def multicastClock(self):

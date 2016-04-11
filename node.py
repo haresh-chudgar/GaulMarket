@@ -9,9 +9,9 @@ import sys
 import time
 import timeit
 import threading
-
+print(len(sys.argv))
 if(len(sys.argv)!=4):
-    print("USAGE python peer1.py <PEER_ID>  <MY IP> <PORT>")
+    print("USAGE python node.py <PEER_ID>  <MY IP> <PORT>")
     print ("PeerID : 1 to N")
     print("Rest features are in config file")
     exit(-1)
@@ -29,8 +29,6 @@ for line in f:
     if(line[0]=='maxID '):
         line[1].replace(" ","")
         maxID = line[1]
-    elif(line[0]=='num_neighbour '):
-        num_neighbour = int(line[1])
     elif(line[0]=='items '):
         itmLst = line[1].split(',')
     elif(line[0]=='numItem '):
@@ -39,10 +37,10 @@ for line in f:
         serverIP = line[1]
 
 print("--------------------------------------------------------------------------------------------------------")
-print("\t\t\t\tPeer ID is ",peerID," and Type is ",peerType)
+print("\t\t\t\tPeer ID is ",peerID)
 print("--------------------------------------------------------------------------------------------------------")
 print("\t\t\t The server IP is ", serverIP)
-p1 = Peer(peerType,peerID,maxID,num_neighbour,itmLst,numItem,myIP,port)
+p1 = Peer(" ",peerID,maxID,0,itmLst,numItem,myIP,port)
 
 
 time.sleep(5)

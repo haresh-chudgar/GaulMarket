@@ -13,41 +13,41 @@ Calling lookup gaul.market.3
 Our new Leader is... gaul.market.4
 Buyer is Ready, starting to buy
 Planning to buy  apple with request id 1
-asdasd
+
 Earnings: 10, Stock:  apple 3
  apple timestamped at [0, 0, 1, 0, 0]: True
 Time: 0.02075155600141443
-asdasd
+
 Earnings: 20, Stock:  apple 2
-asdasd
+
 Earnings: 30, Stock:  apple 1
 Planning to buy orange with request id 2
-asdasd
+
 Earnings: 40, Stock:  apple 0
 orange timestamped at [0, 1, 2, 1, 3]: True
 Time: 0.006822377001299174
-asdasd
+
 Earnings: 50, Stock: orange 3
 Planning to buy pen with request id 3
-asdasd
+
 Earnings: 60, Stock: orange 2
 pen timestamped at [0, 2, 3, 2, 6]: True
 Time: 0.01465011899927049
 Planning to buy  apple with request id 4
-asdasd
+
 Earnings: 70, Stock: orange 1
  apple timestamped at [0, 3, 4, 3, 9]: True
 Time: 0.01036135499998636
-asdasd
+
 Earnings: 80, Stock: orange 0
 Planning to buy  apple with request id 5
-asdasd
+
 Earnings: 90, Stock:  apple 3
  apple timestamped at [0, 4, 5, 4, 12]: True
 Time: 0.015053074999741511
-asdasd
+
 Earnings: 100, Stock:  apple 2
-asdasd
+
 Earnings: 110, Stock:  apple 1
 Lookup called  gaul.market.1 0
 {'gaul.market.1': <Pyro4.core.Proxy at 0x7fe04aa08d68, not connected, for PYRO:obj_2d19308d7a0a408a91a1f6052fa8a870@localhost:9051>, 'gaul.market.4': <Pyro4.core.Proxy at 0x7fe04aa14128, not connected, for PYRO:obj_c1d352a28edb4dc6b7b01a5e2e8d9055@localhost:9021>, 'gaul.market.3': <Pyro4.core.Proxy at 0x7fe04aa14240, not connected, for PYRO:obj_b36ec25c56d74f4f9f7320bb4aa6cf2f@localhost:9054>}
@@ -58,63 +58,63 @@ Our new Leader is... gaul.market.3
 Planning to buy pen with request id 6
 pen timestamped at [0, 0, 1, 0, 0]: True
 Time: 0.00765367799976957
-asdasd
+
 Earnings: 120, Stock:  apple 0
-asdasd
+
 Earnings: 130, Stock: pen 3
 Planning to buy orange with request id 7
-asdasd
+
 Earnings: 140, Stock: pen 2
 orange timestamped at [0, 1, 2, 3, 1]: True
 Time: 0.016277791999527835
-asdasd
+
 Earnings: 150, Stock: pen 1
 Planning to buy orange with request id 8
-asdasd
+
 Earnings: 160, Stock: pen 0
 orange timestamped at [0, 2, 3, 6, 2]: True
 Time: 0.015705743000580696
-asdasd
+
 Earnings: 170, Stock: orange 3
-asdasd
+
 Earnings: 180, Stock: orange 2
 Planning to buy  apple with request id 9
  apple timestamped at [0, 3, 4, 9, 3]: True
 Time: 0.013086402999761049
-asdasd
+
 Earnings: 190, Stock: orange 1
 Planning to buy  apple with request id 10
  apple timestamped at [0, 4, 5, 12, 4]: True
 Time: 0.012904511000670027
-asdasd
+
 Earnings: 200, Stock: orange 0
-asdasd
+
 Earnings: 210, Stock: orange 3
 Planning to buy pen with request id 11
 pen timestamped at [0, 5, 6, 15, 5]: True
 Time: 0.014789761999054463
-asdasd
+
 Earnings: 220, Stock: orange 2
-asdasd
+
 Earnings: 230, Stock: orange 1
 Planning to buy pen with request id 12
 pen timestamped at [0, 6, 7, 18, 6]: True
 Time: 0.01676101099837979
-asdasd
+
 Earnings: 240, Stock: orange 0
 Planning to buy orange with request id 13
-asdasd
+
 Earnings: 250, Stock: pen 3
 orange timestamped at [0, 7, 8, 21, 7]: True
 Time: 0.011678511998979957
-asdasd
+
 Earnings: 260, Stock: pen 2
 Planning to buy  apple with request id 14
-asdasd
+
 Earnings: 270, Stock: pen 1
  apple timestamped at [0, 8, 9, 24, 8]: True
 Time: 0.014002427000377793
-asdasd
+
 Earnings: 280, Stock: pen 0
 Planning to buy  apple with request id 15
  apple timestamped at [0, 9, 10, 27, 9]: True
