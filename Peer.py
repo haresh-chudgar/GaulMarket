@@ -85,7 +85,17 @@ class Peer:
                 threading.Thread(target = pURI.election_lookup, args=[self.peerID]).start()
         time.sleep(1)
         if(not(self.got_ok==1) and not(self.isLeaderElected) ):
-            self.broadcastElectionResult(self.peerID) #I am the leader
+            leaders = [self.peerID]
+            id=int(self.peerID.replace("gaul.market.","")) - 1
+            while id > 0:
+                pURI = self.neighbours[self.domain+str(id)]
+                ret = pURI.become_trader()
+                if(ret==True):
+                    leaders.append(self.domain+str(id))
+                    break
+                id-=1
+            self.broadcastElectionResult(leaders) #I am the leader
+
 
     def ok(self):
         if(self.isLeaderElected==True):
@@ -111,15 +121,26 @@ class Peer:
         time.sleep(1)
         print(self.got_ok)
         if(not(self.got_ok==1) and not(self.isLeaderElected) ):
-            self.broadcastElectionResult(self.peerID)
+            leaders = [self.peerID]
+            id=int(self.peerID.replace("gaul.market.","")) - 1
+            while id > 0:
+                pURI = self.neighbours[self.domain+str(id)]
+                ret = pURI.become_trader()
+                if(ret==True):
+                    leaders.append(self.domain+str(id))
+                    break
+                id-=1
+            self.broadcastElectionResult(leaders) #I am the leader
     
-    def broadcastElectionResult(self, leaderID):
+    def become_trader(self):
+        return True
+    def broadcastElectionResult(self, leaders):
         
         self.isLeaderElected = True
         self.got_ok=0
         self.clock.reset()
-        self.leaderID = leaderID
-        if(self.peerID != leaderID):        
+        self.leaderID = leaders[int(random.random()*2)%2]
+        if(self.peerID not in leaders):
             print("Our new Leader is...", leaderID)
             self.leaderProxy = self.nameServer.lookup(leaderID)
             self.isLeader = False
@@ -129,7 +150,7 @@ class Peer:
             self.isLeader = True
             print("I am assigned as leader")
             for pID,pURI in self.neighbours.items():
-                threading.Thread(target = pURI.broadcastElectionResult, args=[self.peerID]).start()
+                threading.Thread(target = pURI.broadcastElectionResult, args=[leaders]).start()
             if(os.path.isfile(self.traderFilePath)):
                 traderFile = open(self.traderFilePath, 'rb')
                 tempData = pickle.load(traderFile)
