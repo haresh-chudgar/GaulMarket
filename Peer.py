@@ -145,12 +145,13 @@ class Peer:
             self.leaderProxy = self.nameServer.lookup(leaderID)
             self.isLeader = False
             self.leaderProxy = Pyro4.Proxy(self.leaderProxy)
-            #self.leaderProxy.addItemsFromSeller(self.peerID,{self.itemToSell:self.noItems})
+            self.leaderProxy.addItemsFromSeller(self.peerID,{self.itemToSell:self.noItems})
         else:
             self.isLeader = True
             print("I am assigned as leader")
             for pID,pURI in self.neighbours.items():
                 threading.Thread(target = pURI.broadcastElectionResult, args=[leaders]).start()
+            '''
             if(os.path.isfile(self.traderFilePath)):
                 traderFile = open(self.traderFilePath, 'rb')
                 tempData = pickle.load(traderFile)
@@ -166,7 +167,7 @@ class Peer:
                         self.itemsInMarket[item]=[]
                     self.itemsInMarket[item].append([pID, count])
                     print(self.itemsInMarket)
-            
+            '''
     def resign_leader(self):
         if(self.isLeader):
             print("I would like to resign")
