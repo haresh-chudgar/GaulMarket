@@ -86,7 +86,7 @@ class Peer:
                 threading.Thread(target = pURI.election_lookup, args=[self.peerID]).start()
         time.sleep(1)
         if(not(self.got_ok==1) and not(self.isLeaderElected) ):
-            self.isLeaderElected=True
+            #self.isLeaderElected=True
             leaders = [self.peerID]
             id=int(self.peerID.replace("gaul.market.","")) - 1
             while id > 0:
@@ -149,22 +149,25 @@ class Peer:
         return True
         
     def broadcastElectionResult(self, leaders):
-        
+        if(self.isLeaderElected ):
+            return
         self.isLeaderElected = True
         self.got_ok=0
         self.clock.reset()
         self.leaderID = random.choice(leaders)
-            #if(self.isLeaderElected ):
-            #pass
+
         if(self.peerID not in leaders):
+            
             print("Our new Leaders are...",leaders)
             self.leaderProxy = self.nameServer.lookup(self.leaderID)
             self.isLeader = False
             self.leaderProxy = Pyro4.Proxy(self.leaderProxy)
             self.leaderProxy.addItemsFromSeller(self.peerID,{self.itemToSell:self.noItems})
+        
         else:
             self.isLeader = True
             print("I am assigned as leader")
+            
             for pID,pURI in self.neighbours.items():
                 if(pID not in leaders):
                     threading.Thread(target = pURI.broadcastElectionResult, args=[leaders]).start()
@@ -288,12 +291,15 @@ class Peer:
         sell_lock.acquire()
 
         if(item not in self.itemsInMarket):
+            print ("Item not in cache")
             sellers = self.dbProxy.getSellersFor(item)
+            print ("Got the sellers from db",sellers,"for item ", item)
             if(sellers is not None):
                 self.itemsInMarket[item] = sellers
                 self.itemsSold[item] = {}
             
         if(item in self.itemsInMarket):
+            print("Item is in cache")
             print(self.itemsInMarket[item])
             seller = random.choice(list(self.itemsInMarket[item]))
             print(seller, self.itemsInMarket[item][seller])
@@ -305,24 +311,25 @@ class Peer:
                 print("Commission Earned: {0}".format(self.money))
                 isSold = True
             else:
-                
-                self.itemsInMarket[item] = self.dbProxy.mergeItemDetails(item, self.itemsSold)
+                print("Seller rejected the sell request")
+                self.itemsInMarket[item] = self.dbProxy.mergeItemDetails(item, self.itemsSold[item])
+                print ("Calline merge in 316")
+                print ("Calline merge in 316",self.itemsInMarket[item])
                 self.itemsSold[item] = {}
                 if(self.itemsInMarket[item] is None):
                     del self.itemsInMarket[item]
                     del self.itemsSold[item]
-
-                if(self.itemsInMarket[item] is not None):
+                else:
                     seller = random.choice(list(self.itemsInMarket[item]))
                     URI = self.nameServer.lookup(seller)
                     sellerProxy = Pyro4.Proxy(URI)
                     isSaleSuccess = sellerProxy.commissionForItem(item,10)
                     if(isSaleSuccess):
+                        print("Found new seller")
                         self.money += 5
                         print("Commission Earned: {0}".format(self.money))
                         isSold = True
-                else:
-                    del self.itemsInMarket[item]
+
 
         sell_lock.release()
         self.clock.addTime(int(self.peerID.replace("gaul.market.", "")))
@@ -333,14 +340,20 @@ class Peer:
             if(seller not in self.itemsSold[item]):
                 self.itemsSold[item][seller] = 0
             self.itemsSold[item][seller] += 1
-            self.self.itemsInMarket[item][seller] -= 1
+            self.itemsInMarket[item][seller] -= 1
+            print(self.itemsSold[item][seller],self.itemsSold[item])
+            print(self.itemsInMarket[item][seller], self.itemsInMarket[item])
             if(self.itemsSold[item][seller] == self.itemsInMarket[item][seller]):
-                self.itemsInMarket[item] = self.dbProxy.mergeItemDetails(item, self.itemsSold)
+                print ("Calline merge in 345")
+                self.itemsInMarket[item] = self.dbProxy.mergeItemDetails(item, self.itemsSold[item])
+                print ("returning from merge in 347")
                 self.itemsSold[item] = {}
                 if(self.itemsInMarket[item] is None):
                     del self.itemsInMarket[item]
                     del self.itemsSold[item]
-                
+        else:
+            print("Could not sell",item)
+        print("Going to buyer")
         buyerURI.sell(isSold, item, timeStamp, requestID)
         
     def buy(self, item, peerID, timeStamp, requestID):
@@ -354,7 +367,7 @@ class Peer:
             return
 
         isError = self.clock.isError(int(peerID.replace("gaul.market.", "")), timeStamp)
-        #isError = False
+        isError = False
         if(isError == True):
             print("Time out of order {0} from {1}".format(timeStamp, peerID))
             self.requestsList.append([timeStamp, peerID, item, requestID])

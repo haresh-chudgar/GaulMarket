@@ -1,5 +1,8 @@
 python3 -m Pyro4.naming -n 'localhost'
 
+python3 node.py 0 localhost 1117
+
+
 python3 node.py 6 localhost 1116
 
 python3 node.py 5 localhost 1115

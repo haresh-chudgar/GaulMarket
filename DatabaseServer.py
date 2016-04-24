@@ -21,8 +21,10 @@ class DBServer:
         self.requests[traderID][buyerID] = [requestID, item]
     
     def getSellersFor(self, item):
-        if(item in self.itemDB):
+        if(item in self.itemDB ):
             return self.itemDB[item]
+        else:
+            return None
 
     def addItemToDB(self, sellerID, item, count):
         if(item not in self.itemDB):
@@ -32,15 +34,29 @@ class DBServer:
         self.itemDB[item][sellerID] = self.itemDB[item][sellerID] + count
     
     def mergeItemDetails(self, item, data):
-        if(item not in self.itemDB):
+        print("Merging items", item, data)
+        #Merging items pen {'pen': {'gaul.market.4': 2, 'gaul.market.1': 1, 'gaul.market.3': 1}, 'orange': {'gaul.market.2': 1}}
+        print ("Item db is ",self.itemDB)
+        if(item not in self.itemDB  ):
+            #print ("returning none")
             return None
-        
-        for (seller,count) in self.itemDB[item]:
-            self.itemDB[item][seller] -= data[seller]
+        #print ("entering for")
+        for (seller,count) in data.items():
+            print ("Inside loop",seller,count)
+            if seller in self.itemDB[item]:
+                self.itemDB[item][seller] -= data[seller]
+                print ("After sub",seller,self.itemDB[item][seller])
             if(self.itemDB[item][seller] <= 0):
+                print ("deleting")
                 del self.itemDB[item][seller]
-
-        return self.itemDB[item]
+                if(self.itemDB[item]=={}):
+                    del self.itemDB[item]
+        print ("Returning from merge",self.itemDB)
+        if(item in self.itemDB):
+            return self.itemDB[item]
+        else:
+            return None
+                    
     
     def registerPeer(self, myIP, myPort):
         daemon=Pyro4.Daemon(port = myPort, host=myIP)
