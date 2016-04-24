@@ -20,8 +20,8 @@ class Peer:
         
         #Name server helps it connect to peers through names
         self.nameServer = Pyro4.locateNS()
-        domain = "gaul.market."
-        self.peerID = domain+peerID
+        self.domain = "gaul.market."
+        self.peerID = self.domain+peerID
         daemon =  self.registerItems(myIP, myPort)
         #A thread continues to listen incoming requests at the peer
         threading.Thread(target = daemon.requestLoop).start()
@@ -83,6 +83,7 @@ class Peer:
                 threading.Thread(target = pURI.election_lookup, args=[self.peerID]).start()
         time.sleep(1)
         if(not(self.got_ok==1) and not(self.isLeaderElected) ):
+            self.isLeaderElected=True
             leaders = [self.peerID]
             id=int(self.peerID.replace("gaul.market.","")) - 1
             while id > 0:
@@ -119,6 +120,7 @@ class Peer:
         time.sleep(1)
         print(self.got_ok)
         if(not(self.got_ok==1) and not(self.isLeaderElected) ):
+            self.isLeaderElected=True
             leaders = [self.peerID]
             id=int(self.peerID.replace("gaul.market.","")) - 1
             while id > 0:
@@ -131,16 +133,19 @@ class Peer:
             self.broadcastElectionResult(leaders) #I am the leader
     
     def become_trader(self):
+        self.isLeader = True
         return True
     def broadcastElectionResult(self, leaders):
         
         self.isLeaderElected = True
         self.got_ok=0
         self.clock.reset()
-        self.leaderID = leaders[int(random.random()*2)%2]
+        self.leaderID = random.choice(leaders)
+            #if(self.isLeaderElected ):
+            #pass
         if(self.peerID not in leaders):
-            print("Our new Leader is...", leaderID)
-            self.leaderProxy = self.nameServer.lookup(leaderID)
+            print("Our new Leaders are...",leaders)
+            self.leaderProxy = self.nameServer.lookup(self.leaderID)
             self.isLeader = False
             self.leaderProxy = Pyro4.Proxy(self.leaderProxy)
             self.leaderProxy.addItemsFromSeller(self.peerID,{self.itemToSell:self.noItems})
@@ -148,7 +153,8 @@ class Peer:
             self.isLeader = True
             print("I am assigned as leader")
             for pID,pURI in self.neighbours.items():
-                threading.Thread(target = pURI.broadcastElectionResult, args=[leaders]).start()
+                if(pID not in leaders):
+                    threading.Thread(target = pURI.broadcastElectionResult, args=[leaders]).start()
             '''
             if(os.path.isfile(self.traderFilePath)):
                 traderFile = open(self.traderFilePath, 'rb')
