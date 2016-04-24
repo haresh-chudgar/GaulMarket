@@ -6,9 +6,7 @@ import random
 import threading
 import timeit
 import VectorClock
-import copy
 import pickle
-import os.path
 
 buy_lock = threading.Lock()#Lock used by buyer when it establishes a connection with the seller to buy the product
 sell_lock = threading.Lock()#Lock used by seller to decrement he count of object when it is sold
