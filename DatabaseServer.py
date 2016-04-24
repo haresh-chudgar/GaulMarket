@@ -16,10 +16,13 @@ class DBServer:
         threading.Thread(target = daemon.requestLoop).start()
         
     def addRequest(self, requestID, item, buyerID, traderID):
-        if(traderID not in self.requests):
-            self.requests[traderID] = {}
-        self.requests[traderID][buyerID] = [requestID, item]
+        self.requests[buyerID] = [requestID, item]
     
+    def getRequests(self,buyerID):
+        if(buyerID in self.requests):
+            return self.requests[buyerID]
+        return None
+
     def getSellersFor(self, item):
         if(item in self.itemDB ):
             return self.itemDB[item]
@@ -31,7 +34,13 @@ class DBServer:
             self.itemDB[item] = {}
         if(sellerID not in self.itemDB[item]):
             self.itemDB[item][sellerID] = 0
-        self.itemDB[item][sellerID] = self.itemDB[item][sellerID] + count
+        for item in self.itemDB:
+            if sellerID in  self.itemDB[item]:
+                del self.itemDB[item][sellerID]
+                break
+        self.itemDB[item][sellerID] = count
+
+        
     
     def mergeItemDetails(self, item, data):
         print("Merging items", item, data)
@@ -56,8 +65,8 @@ class DBServer:
             return self.itemDB[item]
         else:
             return None
-                    
-    
+        
+ 
     def registerPeer(self, myIP, myPort):
         daemon=Pyro4.Daemon(port = myPort, host=myIP)
         self.pURI = daemon.register(self)

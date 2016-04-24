@@ -1,5 +1,5 @@
 maxID = 6
 hopCount = 3
-items = apple,orange,pen
+items =apple,orange,pen
 numItem = 4
 serverIP =localhost
