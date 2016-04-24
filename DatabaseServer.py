@@ -10,7 +10,7 @@ class DBServer:
         #Name server helps it connect to peers through names
         self.nameServer = Pyro4.locateNS()
         self.peerID = "gaul.market.datastore"
-        daemon =  self.registerItems(myIP, myPort)
+        daemon =  self.registerPeer(myIP, myPort)
         
         #A thread continues to listen incoming requests at the peer
         threading.Thread(target = daemon.requestLoop).start()
@@ -31,11 +31,18 @@ class DBServer:
             self.itemDB[item][sellerID] = 0
         self.itemDB[item][sellerID] = self.itemDB[item][sellerID] + count
     
-    def updateDataFor(self, item, sellerID, deduction):
-        #TODO: check for consistency?
-        self.itemDB[item][sellerID] = self.itemDB[item][sellerID] - deduction
+    def mergeItemDetails(self, item, data):
+        if(item not in self.itemDB):
+            return None
         
-    def registerItems(self, myIP, myPort):
+        for (seller,count) in self.itemDB[item]:
+            self.itemDB[item][seller] -= data[seller]
+            if(self.itemDB[item][seller] <= 0):
+                del self.itemDB[item][seller]
+
+        return self.itemDB[item]
+    
+    def registerPeer(self, myIP, myPort):
         daemon=Pyro4.Daemon(port = myPort, host=myIP)
         self.pURI = daemon.register(self)
         self.nameServer.register(self.peerID, self.pURI)

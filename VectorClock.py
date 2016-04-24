@@ -43,7 +43,7 @@ class VectorClock:
         #TODO:
         for i in range(self.N):
             if(i != p and self.clock[i] < time[i]):
-                print("Returning true", time, self.clock, i, p)
+                #print("Returning true", time, self.clock, i, p)
                 return True
         return False
             
