@@ -65,29 +65,35 @@ class Peer:
         #If all peers on the network, start election
         if(len(self.neighbours) + 1 == self.maxID):
             threading.Thread(target = self.startElection()).start()
-        
+
+    #Add the set of neighbors into the neighbor list
     def connectToNeighbours(self):
         for pID, pURI in self.nameServer.list(prefix="gaul.market.").items():
             if(pID != self.peerID and pID != "gaul.market.datastore"):
                 self.neighbours[pID]  = Pyro4.Proxy(pURI)
         print(self.neighbours)
-    
+
+    #start the election
     def startElection(self):
         print("Starting Election")
         self.isLeaderElected = False
         self.isLeader = False
         self.got_ok = 0
+        #Iterate over all the neighbors
         for pID,pURI in self.neighbours.items():
             id = int(pID.replace("gaul.market.",""))
             myid = int(self.peerID.replace("gaul.market.",""))
             print(id,myid)
+            #Call lookup if the id of neighbor is > my id
             if(id>myid):
                 print("Calling lookup", pID)
                 threading.Thread(target = pURI.election_lookup, args=[self.peerID]).start()
         time.sleep(1)
+        #If no one replied with an ok message, I am the leader
         if(not(self.got_ok==1) and not(self.isLeaderElected) ):
             #self.isLeaderElected=True
             leaders = [self.peerID]
+            #Iterate over smaller id nodes to ask for 2nd trader
             id=int(self.peerID.replace("gaul.market.","")) - 1
             while id > 0:
                 pURI = self.neighbours[self.domain+str(id)]
@@ -100,14 +106,16 @@ class Peer:
             self.dbProxy = Pyro4.Proxy(self.dbProxy)
             print("I am the new leader")
             threading.Thread(target = self.start_beat, args=[leaders[1]]).start()
+            #Broadcast the election result among all the peers
             self.broadcastElectionResult(leaders) #I am the leader
 
-
+    #ok message sent to the peer who caled lookup
     def ok(self):
         if(self.isLeaderElected==True):
             return
         self.got_ok=1
 
+    #Lookup called for election
     def election_lookup( self, requestingPeerID):
         #reply OK
         print("Lookup called ", requestingPeerID,self.got_ok)
@@ -116,7 +124,7 @@ class Peer:
             return
         if(len(self.neighbours) < self.maxID):
             self.connectToNeighbours()
-            
+        #Call lookup on ids which are greater than my id
         self.neighbours[requestingPeerID].ok()
         for pID,pURI in self.neighbours.items():
             id = int(pID.replace("gaul.market.",""))
@@ -126,11 +134,13 @@ class Peer:
                 threading.Thread(target = pURI.election_lookup, args=[self.peerID]).start()
         time.sleep(1)
         print(self.got_ok)
+        #If no one replied with ok message then I am the leader
         if(not(self.got_ok==1) and not(self.isLeaderElected) ):
             print("I am the new leader")            
             self.isLeaderElected=True
             leaders = [self.peerID]
             id=int(self.peerID.replace("gaul.market.","")) - 1
+            #Query the nodes with id smaller than mine to become the second trader
             while id > 0:
                 pURI = self.neighbours[self.domain+str(id)]
                 ret = pURI.become_trader(self.peerID)
@@ -143,17 +153,19 @@ class Peer:
             threading.Thread(target = self.start_beat, args=[leaders[1]]).start()
             self.broadcastElectionResult(leaders) #I am the leader
     
+    #Reply back agreeing to be become one of the traders
     def become_trader(self, leader_ID):
         print("I am the new leader")
         self.isLeader = True
         self.dbProxy = self.nameServer.lookup('gaul.market.datastore')
         self.dbProxy = Pyro4.Proxy(self.dbProxy)
+        #Start the heart beat to track the other leader
         threading.Thread(target = self.start_beat, args=[leader_ID]).start()
         return True
-    
+    #This function just sends beat to confirm that I am alive
     def send_beat(self):
         return True
-
+    #A thread which handles the heart beat process of sending the beat and receiving it
     def start_beat(self,leaderID):
         leaderProxy = self.nameServer.lookup(leaderID)
         leaderProxy = Pyro4.Proxy(leaderProxy)
@@ -165,6 +177,7 @@ class Peer:
                 print ("I am the only leader left ")
                 
                 break
+        #If no reply or exception then the other leader has died and I need to broadcast that I am the only leader left
         for pID,pURI in self.neighbours.items():
             if(not (self.peerID == pID) and not(leaderID == pID) ):
                 threading.Thread(target = pURI.update_leader, args=[self.peerID]).start()
@@ -172,7 +185,7 @@ class Peer:
         self.itemsSold={}
             
     
-    
+    #Broadcast message which informs the peers that I am the only leader in the market now.
     def update_leader(self, leaderID):
         print("Our new leader is ",leaderID)
         self.leaderID  = leaderID
@@ -183,7 +196,8 @@ class Peer:
             bought  = self.leaderProxy.process_old_request(self.peerID, requestID)
             print("Request processed by new trader")
         self.boughtItemsTime = {}
-            
+
+    #When the new leader gets assigned, the peers ask him to process his old requests by resending the requests
     def process_old_request(self, requestingPeerID, requestID):
         print ("Processing old requests",requestingPeerID, requestID)
         requests = self.dbProxy.getRequests(requestingPeerID)
@@ -191,7 +205,7 @@ class Peer:
         if(requestID in requests):
             return True
         return False
-
+    #Broadcasts the results of election
     def broadcastElectionResult(self, leaders):
         if(self.isLeaderElected ):
             return
