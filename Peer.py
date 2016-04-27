@@ -133,8 +133,8 @@ class Peer:
             if(id>myid):
                 print("Calling lookup", pID)
                 threading.Thread(target = pURI.election_lookup, args=[self.peerID]).start()
-        time.sleep(5)
         election_lock.release()
+        time.sleep(5)
         print(self.got_ok)
         #If no one replied with ok message then I am the leader
         if(not(self.got_ok==1) and not(self.isLeaderElected) ):
@@ -308,7 +308,8 @@ class Peer:
         buyerURI = Pyro4.Proxy(buyerURI)
         isSold = False
         sell_lock.acquire()
-
+        
+        #If item is not in cahce then fetch it
         if(item not in self.itemsInMarket):
             print ("Item not in cache")
             sellers = self.dbProxy.getSellersFor(item)
@@ -316,7 +317,7 @@ class Peer:
             if(sellers is not None):
                 self.itemsInMarket[item] = sellers
                 self.itemsSold[item] = {}
-            
+        #if the item is in cache then process it
         if(item in self.itemsInMarket):
             print("Item is in cache")
             print(self.itemsInMarket[item])
@@ -325,6 +326,8 @@ class Peer:
             URI = self.nameServer.lookup(seller)
             sellerProxy = Pyro4.Proxy(URI)
             isSaleSuccess = sellerProxy.commissionForItem(item,10)
+            #If the item is sold the update commission and add the request ot DB server
+            #This addition of request helps in fault tolerance
             if(isSaleSuccess):
                 self.money += 5
                 print("Commission Earned: {0}".format(self.money))
@@ -332,6 +335,7 @@ class Peer:
                 self.dbProxy.addRequest(requestID, item, peerID, self.peerID)
             else:
                 print("Seller rejected the sell request")
+                #If the seller rejected the buy request then it means cache needs to be updated
                 self.itemsInMarket[item] = self.dbProxy.mergeItemDetails(item, self.itemsSold[item])
                 self.itemsSold[item] = {}
                 if(self.itemsInMarket[item] is None):
@@ -353,6 +357,7 @@ class Peer:
         sell_lock.release()
         self.clock.addTime(int(self.peerID.replace("gaul.market.", "")))
         threading.Thread(target = self.multicastClock).start()
+        #Update the cache and check if we need to mege our updates with the database.
         if(isSold is True):
             if(item not in self.itemsSold):
                 self.itemsSold[item] = {}
@@ -426,7 +431,7 @@ class Peer:
                 pURIhandle.updateTimeStamp(self.peerID, self.clock.clock)
     
     def buyAnotherItem(self):
-        
+        #Choose an item to buy by assigning a request id for the buy request
         self.requestID = (self.requestID + 1) % 2000
         
         if(self.isLeader is True):
