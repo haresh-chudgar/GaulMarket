@@ -122,6 +122,7 @@ class Peer:
         self.isLeaderElected=False
         if(self.resigning):
             return
+        election_lock.acquire()
         if(len(self.neighbours) < self.maxID):
             self.connectToNeighbours()
         #Call lookup on ids which are greater than my id
@@ -132,7 +133,8 @@ class Peer:
             if(id>myid):
                 print("Calling lookup", pID)
                 threading.Thread(target = pURI.election_lookup, args=[self.peerID]).start()
-        time.sleep(1)
+        time.sleep(5)
+        election_lock.release()
         print(self.got_ok)
         #If no one replied with ok message then I am the leader
         if(not(self.got_ok==1) and not(self.isLeaderElected) ):
@@ -229,42 +231,7 @@ class Peer:
             for pID,pURI in self.neighbours.items():
                 if(pID not in leaders):
                     threading.Thread(target = pURI.broadcastElectionResult, args=[leaders]).start()
-            '''
-            if(os.path.isfile(self.traderFilePath)):
-                traderFile = open(self.traderFilePath, 'rb')
-                tempData = pickle.load(traderFile)
-                print(tempData)
-                self.itemsInMarket = tempData[0]
-                self.money = tempData[1]
-                traderFile.close()
-                print(self.itemsInMarket)
-            else:
-                for pID,pURI in self.neighbours.items():
-                    [item, count] = pURI.getItemsToSell()
-                    if(item not in self.itemsInMarket):
-                        self.itemsInMarket[item]=[]
-                    self.itemsInMarket[item].append([pID, count])
-                    print(self.itemsInMarket)
-            
-    def resign_leader(self):
-        if(self.isLeader):
-            print("I would like to resign")
-            #Updating file
-            traderFile = open(self.traderFilePath, "wb")
-            pickle.dump([self.itemsInMarket, self.money], traderFile)
-            traderFile.close()
-            
-            #update resigning
-            self.resigning = True
-            for pID,pURI in self.neighbours.items():
-                print("Starting election called of ",pID)
-                pURI.startElection()
-                break
-                #Stop buying anything I am resigning
-                #In case he is resigning then dont take part in leader election
-                # add a clause that
-                #if resiginig then dont forward the request and dont reply anything...
-        '''
+
 #update the max node id
 #if all replies heard great and reply to parent else exit
             
@@ -276,13 +243,13 @@ class Peer:
         
         self.itemToSell = self.itemList[itemIndex]
         self.noItems = self.maxItems
-    
+    # Choose the item to buy randomly
     def chooseItemToBuy(self):
         itemIndex = int(random.random() * len(self.itemList))
         if(itemIndex == len(self.itemList)):
             itemIndex = len(self.itemList) - 1
         return self.itemList[itemIndex]
-    
+    #Register the peer to the nameserver
     def registerPeer(self, myIP, myPort):
         daemon=Pyro4.Daemon(port = myPort, host=myIP)
         self.pURI = daemon.register(self)
@@ -293,7 +260,7 @@ class Peer:
     def getItemsToSell(self):
         print([self.itemToSell, self.noItems])
         return [self.itemToSell, self.noItems]
-        
+    #Add the items to database
     def addItemsFromSeller(self,sellerID,itemsdict):
         print("Registering items from {0}".format(sellerID))
         print (itemsdict)
@@ -303,7 +270,7 @@ class Peer:
     def replenishStock(self):
         self.chooseItemToSell()
         self.leaderProxy.addItemsFromSeller(self.peerID,{self.itemToSell: self.noItems})
-    
+    #Earn commission for an item
     def commissionForItem(self,item,commission):
         if(self.itemToSell == item and self.noItems > 0):
             self.money += commission
@@ -334,13 +301,7 @@ class Peer:
                 return mycmp(self.obj, other.obj) != 0
         return K
     
-    def processList(self):
-        requestsList = sorted(self.requestsList, key=self.cmp_to_key(lambda x,y: x.compare(y)))
-        self.requestsList.clear()
-        for request in requestsList:
-            print("Processing {0}".format(request[0]))
-            self.buy(request[2], request[1], request[0], request[3])
-    
+    #Process the buy request at the trader
     def processBuyRequest(self, item, peerID, timeStamp, requestID):
       
         buyerURI = self.nameServer.lookup(peerID)
@@ -372,8 +333,6 @@ class Peer:
             else:
                 print("Seller rejected the sell request")
                 self.itemsInMarket[item] = self.dbProxy.mergeItemDetails(item, self.itemsSold[item])
-                print ("Calline merge in 316")
-                print ("Calline merge in 316",self.itemsInMarket[item])
                 self.itemsSold[item] = {}
                 if(self.itemsInMarket[item] is None):
                     del self.itemsInMarket[item]
@@ -417,6 +376,11 @@ class Peer:
         print("Going to buyer")
 
         buyerURI.sell(isSold, item, timeStamp, requestID)
+        requestsList = sorted(self.requestsList, key=self.cmp_to_key(lambda x,y: x.compare(y)))
+        self.requestsList.clear()
+        for request in requestsList:
+            print("Processing {0}".format(request[0]))
+            self.buy(request[2], request[1], request[0], request[3])
         
     def buy(self, item, peerID, timeStamp, requestID):
         print("Buy request from {0} for {1} with time {2}".format(peerID, item, timeStamp))
@@ -436,7 +400,6 @@ class Peer:
         else:
             self.clock.update(timeStamp)
             self.processBuyRequest(item, peerID, timeStamp, requestID)
-            self.processList()
 
     def sell(self, isSold, item, timestamp, requestID):
         self.clock.update(timestamp)

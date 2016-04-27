@@ -51,7 +51,6 @@ else:
     
     item_no=1
     
-    print("Buyer is Ready, starting to buy")
     while(1):
         start = timeit.default_timer()
         #print ("Start time to buy this item is ",start," Item is "+str(item_no) )
