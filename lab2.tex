@@ -118,20 +118,22 @@ We have implemented the bully algorithm of leader election which floods the netw
 In our design the second leader is chosen by the first elected leader by sending messages to the nodes in decreasing order of ids. This is done because the bully algorithm selects the highest id node as the peer, so the nodes with smaller id can become the second leader/trader.
 
 \subsection{Message Passing:}
-We implemented the protocols as per the specifications where each seller registers the items with the trader and  each buyer directly requests the trader for an item. The trader keeps the commission and gives the earnings to the seller on each buy.
+We implemented the protocols as per the specifications where each seller registers the items with the trader, the trader adds the items to the database server and  each buyer directly requests the trader for an item.  Here the buyer keeps on buying items from a specific trader which he chooses randomly. The trader keeps the commission and gives the earnings to the seller on each buy. In case one of the leader drops out, all the buyers trade through the leader which is left.
 
-\subsection{Synchronization}
-We used vector clocks for clock synchronization and total ordering. The choice was mainly due to easy debugging and testing. Each peer increments its clock component and sends a clock update message to all its peers except the trader. The peer then immediately calls the trader's buy function with the updated clock. 
 
 \section{How it works?}
 \subsection{Start}The network is started by deploying peers individually. Each peer on start registers itself on the nameserver. The last peer that joins the network starts leader election. Every peer is both a buyer and a seller until it becomes a trader.
 
 \subsection{Buying}
-The buyer contacts the trader with the item and its vector clock. The trader checks its clock with the buyer's vector clock for any messages it has missed. There are two cases to be considered here:
+The buyer contacts the trader with the item. The trader checks for the item in his cache. If he finds it then he goes ahead with the transaction, updating his cache. In case of a cache miss, it queries the database server to get the item and then go ahead with the transaction
+
+\subsection{Cache Consistency}
+In order to maintain cache consistency we do the following : 
 \begin{itemize}
-\item If there are no missed message, the trader immediately responds to the message by first incrementing its clock component, multi casting clock update message to all peers except the buyer, and then responding to the buyer. The clock update is handled in a thread to decrease delay in response time. The prototype for buy function is given below for reference.
-\item If the vector clock indicates a missed message, it queues the request. When the trader finally receives the delayed message, it processes it as per the above step, and processes the queue either till it is empty or till it encounters a message with vector clock value which is out of order. At this point it has to wait for the correct message to arrive before it can process the rest of the queue.
+\item Initially, the item is queried from the cache and we keep a copy of the items in the databse.
+\item On each sale, the item count is reduced in the cache. The moment the count of the item goes below a threshold, it pushes the update into the database.
 \end{itemize}
+It can be seen that this technique never leads to wrong transaction because the trader always checks with the seller before making any transaction. The seller is always aware of the amount of items he has in the warehouse. 
 
 \begin{verbatim}
 def buy(self, item, peerID, timeStamp, requestID):
@@ -166,8 +168,6 @@ def sell(self, isSold, item, timestamp, requestID):
 \item requestID: The request id which was sent along with the buy request.
 \end{itemize}
 
-\subsection{Leader resignation}
-When a leader resigns, a new election is started to choose a new leader. As soon as the new leader is elected, it needs to get the state of the market to resume trading. For this to work in harmony, we have implemented two different ways to capture the state of the market.
 
 \begin{itemize}
 \item File based: The trader maintains a file in a common location which is known to all peers. Whenever a trader resigns, the new leader reads the file and continues operation of the market.
