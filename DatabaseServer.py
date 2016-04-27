@@ -4,6 +4,10 @@ import threading
 db_lock = threading.Lock()
 
 class DBServer:
+    """
+    Inititalizes the class.
+    The DB is registered with the nameserver with the name "gaul.market.datastore"
+    """
     def __init__(self, myIP, myPort):
         self.requests = {}
         self.itemDB = {}
@@ -15,21 +19,38 @@ class DBServer:
         
         #A thread continues to listen incoming requests at the peer
         threading.Thread(target = daemon.requestLoop).start()
-        
+       
+    """
+    Trader calls addRequest to add the buy request from the buyer.
+    Only one request is maintained per buyer since once a trader crashes, 
+    all further requests would have failed and not be added and 
+    all previous requests to this would have already been communicated to the
+    buyer.
+    """
     def addRequest(self, requestID, item, buyerID, traderID):
         self.requests[buyerID] = [requestID, item]
     
+    """
+    On one of the trader crashing, the new trader calls this function 
+    when the buyer sends the unprocessed requests to the other trader.
+    """
     def getRequests(self,buyerID):
         if(buyerID in self.requests):
             return self.requests[buyerID]
         return None
 
+    """
+    Returns list of sellers of a particular item
+    """
     def getSellersFor(self, item):
         if(item in self.itemDB ):
             return self.itemDB[item]
         else:
             return None
 
+    """
+    Adds seller to the list of sellers of a particular item to the database
+    """
     def addItemToDB(self, sellerID, item, count):
         db_lock.acquire()
         if(item not in self.itemDB):
@@ -44,7 +65,10 @@ class DBServer:
         db_lock.release()
 
         
-    
+    """
+    Merges the count of items sold through a particular trader for a particular item.
+    data consists of list of (seller,count) key value pairs
+    """
     def mergeItemDetails(self, item, data):
         print("Merging items", item, data)
         #Merging items pen {'pen': {'gaul.market.4': 2, 'gaul.market.1': 1, 'gaul.market.3': 1}, 'orange': {'gaul.market.2': 1}}
@@ -71,7 +95,9 @@ class DBServer:
         else:
             return None
         
- 
+    """
+    Registers the peer on the nameserver
+    """
     def registerPeer(self, myIP, myPort):
         daemon=Pyro4.Daemon(port = myPort, host=myIP)
         self.pURI = daemon.register(self)
