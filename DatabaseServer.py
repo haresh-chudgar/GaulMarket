@@ -31,6 +31,7 @@ class DBServer:
             return None
 
     def addItemToDB(self, sellerID, item, count):
+        db_lock.acquire()
         if(item not in self.itemDB):
             self.itemDB[item] = {}
         if(sellerID not in self.itemDB[item]):
@@ -40,6 +41,7 @@ class DBServer:
                 del self.itemDB[item][sellerID]
                 break
         self.itemDB[item][sellerID] = count
+        db_lock.release()
 
         
     

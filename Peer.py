@@ -245,7 +245,7 @@ class Peer:
                         self.itemsInMarket[item]=[]
                     self.itemsInMarket[item].append([pID, count])
                     print(self.itemsInMarket)
-            '''
+            
     def resign_leader(self):
         if(self.isLeader):
             print("I would like to resign")
@@ -264,7 +264,7 @@ class Peer:
                 #In case he is resigning then dont take part in leader election
                 # add a clause that
                 #if resiginig then dont forward the request and dont reply anything...
-
+        '''
 #update the max node id
 #if all replies heard great and reply to parent else exit
             
@@ -295,7 +295,6 @@ class Peer:
         return [self.itemToSell, self.noItems]
         
     def addItemsFromSeller(self,sellerID,itemsdict):
-        #TODO: Lock required
         print("Registering items from {0}".format(sellerID))
         print (itemsdict)
         for item,count in itemsdict.items():
