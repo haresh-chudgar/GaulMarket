@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import Pyro4
 import threading
+db_lock = threading.Lock()
 
 class DBServer:
     def __init__(self, myIP, myPort):
@@ -50,6 +51,7 @@ class DBServer:
             #print ("returning none")
             return None
         #print ("entering for")
+        db_lock.acquire()
         for (seller,count) in data.items():
             print ("Inside loop",seller,count)
             if seller in self.itemDB[item]:
@@ -60,6 +62,7 @@ class DBServer:
                 del self.itemDB[item][seller]
                 if(self.itemDB[item]=={}):
                     del self.itemDB[item]
+        db_lock.release()
         print ("Returning from merge",self.itemDB)
         if(item in self.itemDB):
             return self.itemDB[item]
