@@ -96,7 +96,7 @@ decoration={snake,amplitude=1mm,segment length=10mm,post length=2mm}},
 \newcommand*\samethanks[1][\value{footnote}]{\footnotemark[#1]}
 \DeclareMathOperator*{\argmax}{arg\,max}
 
-\title{\textbf{Distributed Operating Systems \\ Asterix and the Bazaar}}
+\title{\textbf{Distributed Operating Systems \\ Asterix and Double Trouble: Replication, Fault Tolerance and Cache Consistency}}
 \author{Sainyam Galhotra \& Haresh Chudgar }
 
 \usepackage{graphicx}
@@ -109,10 +109,13 @@ We use an unstructured Peer 2 Peer network and RPCs to implement the system. The
 We use  Python Remote Object (PyRO) library to facilitate communication between peers. PyRO’s clean set of functions, tutorials and good documentation led us to choosing it over other libraries.  Using PyRO, one of the machines is set up as a nameserver. Whenever a peer starts, it registers itself to the nameserver; this enables querying the peer’s URI just by name and linking to it.
 
 \subsection{Peer} We are maintaining a stateful peer which knows about all the other node ids in the network. 
+\subsection{Database server}
+We have implemented a stateless pull based architecture where the database server has no information about the trader. The traders are told about the IP of the database as and when they get elected.  In our design, the traders can only access the database which helps to keep the data secure. 
 
 \subsection{Leader Election}
-We have implemented the bully algorithm of leader election which floods the network with lookup and ok messages. We also implemented the ring algorithm over the overlay network as we earlier  felt that we need to use the overlay network for leader election. In case of bully algorithm the node with highest id becomes the leader. Every peer waits for an ok message. If it receives an ok message then it cannot be a leader.
-In case a node resigns, it messages to one of the neighbor which starts the election all over again. The resigned node acts dormant during the election. It then passes the stock  information  to the new leader. The old leader acts as normal buyer, seller peer after the new leader is elected.
+We have implemented the bully algorithm of leader election which floods the network with lookup and ok messages. Here every node call lookup on the nodes of higher id and it is not chosen as a leader if it receives an ok message. Also when lookup is called, it sends an ok message to the node which called lookup.  We also implemented the ring algorithm over the overlay network as we earlier  felt that we need to use the overlay network for leader election. In case of bully algorithm the node with highest id becomes the leader. Every peer waits for an ok message. If it receives an ok message then it cannot be a leader.
+
+In our design the second leader is chosen by the first elected leader by sending messages to the nodes in decreasing order of ids. This is done because the bully algorithm selects the highest id node as the peer, so the nodes with smaller id can become the second leader/trader.
 
 \subsection{Message Passing:}
 We implemented the protocols as per the specifications where each seller registers the items with the trader and  each buyer directly requests the trader for an item. The trader keeps the commission and gives the earnings to the seller on each buy.
